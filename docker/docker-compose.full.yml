@@ -1,0 +1,277 @@
+# ─────────────────────────────────────────────────────────────────────
+# Medical Handwriting OCR — Full Docker Compose Stack
+# ─────────────────────────────────────────────────────────────────────
+# Extends docker-compose.yml with:
+#   - Redis (Celery broker + result backend)
+#   - Celery Worker (async OCR processing, training)
+#   - Celery Beat (scheduled tasks: weekly training, nightly cleanup)
+#   - Nginx (reverse proxy, static frontend, WebSocket support)
+#
+# Usage:
+#   docker compose -f docker-compose.full.yml up -d
+# ─────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+# ── Shared network for all services ──
+networks:
+  ocr-network:
+    driver: bridge
+  # External-facing network (for nginx to reach internet)
+  gateway:
+    driver: bridge
+
+# ── Named volumes ──
+volumes:
+  postgres_data:
+  minio_data:
+  model_cache:
+  redis_data:
+  nginx_logs:
+
+services:
+  # ────────────────────────────────────────────────
+  # PostgreSQL Database
+  # ────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: ocr_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ocr_user
+      POSTGRES_PASSWORD: ocr_password_123
+      POSTGRES_DB: medical_ocr
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - ocr-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ocr_user -d medical_ocr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ────────────────────────────────────────────────
+  # Redis (Celery broker + result backend)
+  # ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ocr_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --requirepass redis_password_123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ocr-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password_123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ────────────────────────────────────────────────
+  # MinIO Object Storage
+  # ────────────────────────────────────────────────
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: ocr_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console
+    command: server /data --console-address ":9001"
+    networks:
+      - ocr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ────────────────────────────────────────────────
+  # Backend API (FastAPI + Uvicorn)
+  # ────────────────────────────────────────────────
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ocr_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=ocr-crops
+      - MINIO_SECURE=false
+      - REDIS_URL=redis://:redis_password_123@redis:6379/0
+      - CELERY_BROKER_URL=redis://:redis_password_123@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:redis_password_123@redis:6379/1
+      - WORKERS=4
+    volumes:
+      - ../backend:/app
+      - model_cache:/app/.cache
+    ports:
+      - "8000:8000"
+    networks:
+      - ocr-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    command: >
+      uvicorn app.main:app
+        --host 0.0.0.0
+        --port 8000
+        --workers 4
+        --log-level info
+
+  # ────────────────────────────────────────────────
+  # Celery Worker (async OCR processing & training)
+  # ────────────────────────────────────────────────
+  celery:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.celery
+    container_name: ocr_celery
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=ocr-crops
+      - MINIO_SECURE=false
+      - REDIS_URL=redis://:redis_password_123@redis:6379/0
+      - CELERY_BROKER_URL=redis://:redis_password_123@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:redis_password_123@redis:6379/1
+      - CELERY_CONCURRENCY=2
+      - UPLOAD_DIR=/tmp/uploads
+      - CROP_DIR=/tmp/crops
+    volumes:
+      - ../backend:/app
+      - model_cache:/app/.cache
+    networks:
+      - ocr-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.tasks inspect ping --interval=5"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    command: >
+      celery -A app.tasks.celery_app worker
+        --loglevel=info
+        --concurrency=2
+        --max-tasks-per-child=50
+        --time-limit=600
+        --soft-time-limit=540
+        --queues=ocr,default
+        --hostname=ocr-worker@%h
+
+  # ────────────────────────────────────────────────
+  # Celery Beat (scheduled tasks)
+  #   - Weekly model retraining (Sunday 3 AM)
+  #   - Nightly dataset export & cleanup (Daily 2 AM)
+  #   - Hourly statistics aggregation
+  # ────────────────────────────────────────────────
+  celery-beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.celery
+    container_name: ocr_celery_beat
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=ocr-crops
+      - MINIO_SECURE=false
+      - REDIS_URL=redis://:redis_password_123@redis:6379/0
+      - CELERY_BROKER_URL=redis://:redis_password_123@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:redis_password_123@redis:6379/1
+    volumes:
+      - ../backend:/app
+    networks:
+      - ocr-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    command: >
+      celery -A app.tasks.celery_app beat
+        --loglevel=info
+        --pidfile=/tmp/celerybeat.pid
+        --schedule=/tmp/celerybeat-schedule
+
+  # ────────────────────────────────────────────────
+  # Nginx Reverse Proxy
+  #   - Terminates TLS (port 443)
+  #   - Serves frontend static files
+  #   - Proxies /api/* to backend
+  #   - WebSocket support for future real-time
+  #   - Gzip, security headers, rate limiting
+  # ────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ocr_nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../frontend:/usr/share/nginx/html:ro
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - ocr-network
+      - gateway
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

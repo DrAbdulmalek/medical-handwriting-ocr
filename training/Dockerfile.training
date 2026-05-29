@@ -1,0 +1,21 @@
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+
+WORKDIR /app
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y     python3.10 python3-pip git     libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1     && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --upgrade pip
+RUN pip3 install torch==2.1.1 torchvision==0.16.1 --index-url https://download.pytorch.org/whl/cu118
+
+COPY requirements.training.txt .
+RUN pip3 install --no-cache-dir -r requirements.training.txt
+RUN python3 -c "from paddleocr import PaddleOCR; PaddleOCR(download_model=True)"
+
+COPY *.py ./
+RUN mkdir -p /models
+
+ENV PYTHONPATH=/app
+ENV CUDA_VISIBLE_DEVICES=0
+
+ENTRYPOINT ["python3", "-u"]

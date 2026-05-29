@@ -1,0 +1,16 @@
+transformers==4.35.2
+datasets==2.14.0
+evaluate==0.4.1
+accelerate==0.25.0
+torch==2.1.1
+torchvision==0.16.1
+Pillow==10.1.0
+opencv-python-headless==4.8.1.78
+numpy==1.24.3
+psycopg2-binary==2.9.9
+requests==2.31.0
+python-dotenv==1.0.0
+rapidfuzz==3.5.2
+PyGithub==2.1.1
+tqdm==4.66.1
+matplotlib==3.8.2

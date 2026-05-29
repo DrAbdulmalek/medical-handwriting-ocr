@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة القواميس - Medical OCR</title>
+    <link rel="stylesheet" href="css/dictionary.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="icon">📚</span>
+                <h1>مدير القواميس</h1>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item">
+                    <span>🩺</span>
+                    <span>التصحيح</span>
+                </a>
+                <a href="dictionary.html" class="nav-item active">
+                    <span>📚</span>
+                    <span>القواميس</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span>📊</span>
+                    <span>الإحصائيات</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span>⚙️</span>
+                    <span>الإعدادات</span>
+                </a>
+            </nav>
+
+            <div class="token-status" id="token-status">
+                <div class="status-indicator checking">
+                    <span class="dot"></span>
+                    <span>جاري التحقق...</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="page-header">
+                <h2>إدارة القواميس العربية</h2>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="syncDictionaries()">
+                        <span>🔄</span> مزامنة
+                    </button>
+                </div>
+            </header>
+
+            <section class="token-section" id="token-section">
+                <div class="card">
+                    <h3>🔑 إعدادات الوصول</h3>
+                    <p>للوصول إلى القواميس المتقدمة، أدخل GitHub Token الخاص بك:</p>
+
+                    <div class="token-input-group">
+                        <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="token-input">
+                        <button class="btn btn-primary" onclick="validateAndSaveToken()">تحقق وحفظ</button>
+                    </div>
+
+                    <div class="token-help">
+                        <a href="https://github.com/settings/tokens" target="_blank">كيف أحصل على Token؟</a>
+                        <span class="separator">|</span>
+                        <a href="#" onclick="useDemoMode()">تجربة بدون Token (محدود)</a>
+                    </div>
+
+                    <div id="token-validation-result"></div>
+                </div>
+            </section>
+
+            <section class="dictionaries-grid" id="dictionaries-grid">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>جاري تحميل القواميس...</p>
+                </div>
+            </section>
+
+            <section class="search-section">
+                <div class="card">
+                    <h3>🔍 البحث في القواميس</h3>
+                    <div class="search-box">
+                        <input type="text" id="dict-search-input" placeholder="أدخل مصطلحًا للبحث..." class="search-input">
+                        <select id="dict-select" class="dict-select">
+                            <option value="">جميع القواميس</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="searchDictionaries()">بحث</button>
+                    </div>
+                    <div id="search-results"></div>
+                </div>
+            </section>
+
+            <section class="stats-section">
+                <div class="stats-grid" id="dict-stats">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total-dicts">-</span>
+                        <span class="stat-label">القواميس المتاحة</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total-entries">-</span>
+                        <span class="stat-label">إجمالي المدخلات</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-last-sync">-</span>
+                        <span class="stat-label">آخر مزامنة</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/dictionary.js"></script>
+</body>
+</html>
