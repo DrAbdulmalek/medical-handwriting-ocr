@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+postgres_data/
+minio_data/
+model_cache/
+
+# Uploads and crops
+uploads/
+crops/
+
+# Training outputs
+trained_model/
+hf_dataset/
+*.pt
+*.pth
+
+# Logs
+*.log
+
+# Model caches
+.cache/

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical OCR - تصحيح الملاحظات الطبية</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Medical Handwriting OCR</h1>
+            <p>نظام التعرف على الخط اليدوي الطبي مع التصحيح التفاعلي</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section id="upload-section">
+            <div class="upload-box" id="drop-zone">
+                <input type="file" id="file-input" accept="image/*" hidden>
+                <div class="upload-content">
+                    <span class="icon">📄</span>
+                    <p>اسحب صورة هنا أو انقر للاختيار</p>
+                    <span class="hint">PDF, PNG, JPG (حد أقصى 10MB)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Editor (hidden initially) -->
+        <section id="editor-section" class="hidden">
+            <div class="toolbar">
+                <button id="prev-word">◀ السابق</button>
+                <span id="progress">كلمة 1 من 25</span>
+                <button id="next-word">التالي ▶</button>
+                <button id="save-all" class="primary">💾 حفظ الكل</button>
+            </div>
+
+            <div class="editor-layout">
+                <!-- Image Viewer -->
+                <div class="image-panel">
+                    <div id="image-container">
+                        <img id="document-image" src="" alt="Document">
+                        <div id="highlight-box"></div>
+                    </div>
+                </div>
+
+                <!-- Text Panel -->
+                <div class="text-panel">
+                    <div id="current-word-card">
+                        <div class="crop-preview">
+                            <img id="word-crop" src="" alt="Word crop">
+                        </div>
+
+                        <div class="word-info">
+                            <label>النص المُكتشف:</label>
+                            <div id="predicted-text" class="predicted"></div>
+
+                            <label>التصحيح:</label>
+                            <input type="text" id="correction-input" placeholder="اكتب التصحيح هنا...">
+
+                            <div class="confidence-badge" id="confidence-badge">
+                                الثقة: <span id="confidence-value">85%</span>
+                            </div>
+
+                            <div class="suggestions" id="suggestions">
+                                <span class="suggestion-tag">اقتراح 1</span>
+                                <span class="suggestion-tag">اقتراح 2</span>
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <button id="confirm-correct" class="primary">✓ تصحيح صحيح</button>
+                            <button id="skip-word">تخطي</button>
+                            <button id="flag-medical" class="warning">🚩 مصطلح طبي خطير</button>
+                        </div>
+                    </div>
+
+                    <!-- List of all words -->
+                    <div class="words-list">
+                        <h3>جميع الكلمات</h3>
+                        <div id="words-container"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section id="stats-section" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-total">0</span>
+                    <span class="stat-label">إجمالي الكلمات</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-corrected">0</span>
+                    <span class="stat-label">تم تصحيحها</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-pending">0</span>
+                    <span class="stat-label">بانتظار المراجعة</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Correction Modal -->
+    <div id="correction-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>✏️ تصحيح الكلمة</h3>
+            <div class="modal-crop">
+                <img id="modal-crop-img" src="" alt="">
+            </div>
+            <div class="modal-form">
+                <label>النص الأصلي:</label>
+                <div id="modal-original" class="original-text"></div>
+
+                <label>التصحيح:</label>
+                <input type="text" id="modal-input" autofocus>
+
+                <div class="modal-suggestions" id="modal-suggestions"></div>
+
+                <div class="modal-actions">
+                    <button id="modal-save" class="primary">حفظ التصحيح</button>
+                    <button id="modal-cancel">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
