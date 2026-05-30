@@ -1,0 +1,676 @@
+/* =============================================================================
+   Mobile Responsive Styles — Medical OCR PWA
+   ============================================================================= */
+
+/* Safe Area Insets for Notched Devices */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --safe-top: calc(var(--sat) + 8px);
+  --safe-bottom: calc(var(--sab) + 8px);
+}
+
+/* =============================================================================
+   Base Mobile Layout
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  body {
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Full-screen editor layout */
+  .editor-container,
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .editor-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    padding-top: var(--safe-top);
+    padding-bottom: calc(60px + var(--sab));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide desktop-only elements */
+  .desktop-only,
+  .sidebar,
+  .nav-sidebar {
+    display: none !important;
+  }
+
+  /* Hide horizontal scrollbars */
+  .scrollable-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .scrollable-container::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* =============================================================================
+   Touch-Friendly Buttons
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  button,
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-success,
+  [role="button"],
+  a.button,
+  input[type="submit"],
+  input[type="button"],
+  select {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 16px; /* Prevent iOS zoom on focus */
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.15s ease;
+  }
+
+  button:active,
+  .btn:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+
+  /* Smaller icon buttons */
+  .btn-icon,
+  .btn-sm {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  /* Danger zone — ensure correct tap targets */
+  .correction-btn,
+  .suggestion-btn,
+  .dictionary-btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Form inputs */
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="url"],
+  input[type="password"],
+  textarea {
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 16px; /* Prevent iOS zoom */
+    border-radius: 8px;
+  }
+
+  textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+}
+
+/* =============================================================================
+   Sticky Toolbar
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 8px 12px;
+    padding-top: var(--safe-top);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .toolbar .toolbar-item,
+  .toolbar .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .toolbar-title {
+    font-size: 16px;
+    font-weight: 600;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* =============================================================================
+   Bottom Sheet — Correction Modal
+   ============================================================================= */
+
+.correction-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: flex-end;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.correction-modal-overlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .correction-modal {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1001;
+    background-color: #ffffff;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+    max-height: 85vh;
+    max-height: 85dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0;
+    padding-bottom: var(--safe-bottom);
+
+    /* Slide-up animation */
+    transform: translateY(100%);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .correction-modal.active {
+    transform: translateY(0);
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* Drag handle */
+  .correction-modal::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    display: block;
+    width: 36px;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+    margin: 10px auto;
+    z-index: 2;
+  }
+
+  /* Modal header */
+  .correction-modal-header {
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .correction-modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .correction-modal-body {
+    padding: 16px;
+  }
+
+  .correction-modal-footer {
+    padding: 12px 16px;
+    padding-bottom: calc(12px + var(--safe-bottom));
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    gap: 12px;
+    position: sticky;
+    bottom: 0;
+    background-color: #ffffff;
+  }
+
+  .correction-modal-footer .btn {
+    flex: 1;
+    min-height: 48px;
+  }
+}
+
+/* =============================================================================
+   Camera Button — Fixed Bottom-Right (Circular)
+   ============================================================================= */
+
+.camera-fab {
+  position: fixed;
+  bottom: calc(24px + var(--sab));
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 500;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  touch-action: manipulation;
+}
+
+.camera-fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.camera-fab svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+/* =============================================================================
+   Install Prompt Button — Fixed Bottom-Left
+   ============================================================================= */
+
+.install-prompt-btn {
+  position: fixed;
+  bottom: calc(24px + var(--sab));
+  left: 24px;
+  min-height: 44px;
+  padding: 10px 16px;
+  background-color: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  border-radius: 22px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.2s ease, background-color 0.15s ease;
+  touch-action: manipulation;
+}
+
+.install-prompt-btn:active {
+  transform: scale(0.95);
+  background-color: rgba(37, 99, 235, 0.2);
+}
+
+.install-prompt-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Hide install button when app is installed */
+@media (display-mode: standalone) {
+  .install-prompt-btn {
+    display: none !important;
+  }
+}
+
+/* =============================================================================
+   Offline Indicator Bar
+   ============================================================================= */
+
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  background-color: #f59e0b;
+  color: #ffffff;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  padding-top: calc(6px + var(--sat));
+  transform: translateY(-100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.offline-indicator.visible {
+  transform: translateY(0);
+}
+
+.offline-indicator .offline-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* =============================================================================
+   PWA Installed State Styles
+   ============================================================================= */
+
+@media (display-mode: standalone) {
+  /* Remove browser chrome-specific elements */
+  .browser-warning,
+  .install-banner {
+    display: none !important;
+  }
+
+  /* Full-screen experience */
+  .app-header {
+    padding-top: var(--safe-top);
+  }
+
+  /* Adjust spacing for safe areas */
+  .bottom-nav,
+  .bottom-bar {
+    padding-bottom: var(--sab);
+  }
+
+  /* Increase touch targets in standalone mode */
+  .nav-item,
+  .tab-item {
+    min-height: 52px;
+  }
+}
+
+/* =============================================================================
+   Dark Mode Support
+   ============================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #111827;
+    color: #f3f4f6;
+  }
+
+  .toolbar {
+    background-color: rgba(17, 24, 39, 0.92);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .correction-modal {
+    background-color: #1f2937;
+  }
+
+  .correction-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .correction-modal-footer {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    background-color: #1f2937;
+  }
+
+  .correction-modal::before {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .install-prompt-btn {
+    background-color: rgba(37, 99, 235, 0.2);
+    color: #60a5fa;
+    border-color: rgba(37, 99, 235, 0.4);
+  }
+
+  .offline-indicator {
+    background-color: #b45309;
+    box-shadow: 0 2px 8px rgba(180, 83, 9, 0.3);
+  }
+
+  button,
+  .btn,
+  input,
+  select,
+  textarea {
+    color: #f3f4f6;
+    background-color: #374151;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .correction-modal-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Manual dark mode class (when toggled by user) */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #111827;
+  color: #f3f4f6;
+}
+
+.dark .toolbar {
+  background-color: rgba(17, 24, 39, 0.92);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .correction-modal {
+  background-color: #1f2937;
+}
+
+.dark .correction-modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .correction-modal-footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background-color: #1f2937;
+}
+
+.dark .correction-modal::before {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark .install-prompt-btn {
+  background-color: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.dark .offline-indicator {
+  background-color: #b45309;
+}
+
+.dark button,
+.dark .btn,
+.dark input,
+.dark select,
+.dark textarea {
+  color: #f3f4f6;
+  background-color: #374151;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* =============================================================================
+   Responsive Typography
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.125rem; }
+  h4 { font-size: 1rem; }
+  p { font-size: 0.9375rem; line-height: 1.6; }
+
+  /* RTL adjustments for Arabic */
+  [dir="rtl"] h1,
+  [dir="rtl"] h2,
+  [dir="rtl"] h3,
+  [dir="rtl"] p {
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  }
+}
+
+/* =============================================================================
+   Utility Classes for Mobile
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .mobile-full-width {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .mobile-p-4 {
+    padding: 16px !important;
+  }
+
+  .mobile-pb-safe {
+    padding-bottom: var(--safe-bottom) !important;
+  }
+
+  .mobile-pt-safe {
+    padding-top: var(--safe-top) !important;
+  }
+
+  .mobile-gap-2 {
+    gap: 8px !important;
+  }
+
+  .mobile-gap-3 {
+    gap: 12px !important;
+  }
+
+  /* Hide overflow text */
+  .mobile-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* No scrollbar mobile */
+  .mobile-no-scrollbar {
+    scrollbar-width: none;
+  }
+  .mobile-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* RTL-specific adjustments */
+  [dir="rtl"] .camera-fab {
+    right: auto;
+    left: 24px;
+  }
+
+  [dir="rtl"] .install-prompt-btn {
+    left: auto;
+    right: 24px;
+  }
+}
+
+/* =============================================================================
+   Transition & Animation for Mobile
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Page transition effect */
+  .page-transition {
+    animation: fadeInMobile 0.2s ease;
+  }
+
+  @keyframes fadeInMobile {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Shimmer loading effect */
+  .shimmer-loading {
+    background: linear-gradient(
+      90deg,
+      rgba(128, 128, 128, 0.1) 25%,
+      rgba(128, 128, 128, 0.2) 50%,
+      rgba(128, 128, 128, 0.1) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}

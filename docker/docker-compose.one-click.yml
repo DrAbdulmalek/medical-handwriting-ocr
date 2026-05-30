@@ -1,0 +1,294 @@
+# =============================================================================
+# Medical Data Analysis Platform — All-in-One Docker Compose
+# =============================================================================
+#
+# Usage:
+#   docker compose -f docker/docker-compose.one-click.yml up -d
+#
+# Services:
+#   - postgres   : PostgreSQL with pgvector for vector search
+#   - redis      : Redis for caching, rate limiting, and Celery broker
+#   - minio      : MinIO S3-compatible object storage for uploads
+#   - backend    : FastAPI application server
+#   - celery-worker: Celery worker for async tasks
+#   - celery-beat : Celery beat scheduler for periodic tasks
+#   - gradio     : Interactive Gradio UI (port 7860)
+#
+# =============================================================================
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — Primary Database with pgvector
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: medocr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ocr_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ocr_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-medical_ocr}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ocr_user} -d ${POSTGRES_DB:-medical_ocr}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
+  # Redis — Cache, Rate Limiting, Celery Broker
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: medocr-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server
+      --maxmemory ${REDIS_MAXMEMORY:-256mb}
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
+  # MinIO — S3-Compatible Object Storage
+  # ---------------------------------------------------------------------------
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: medocr-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI Application
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: "3.10"
+    container_name: medocr-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ocr_user}:${POSTGRES_PASSWORD:-ocr_password_123}@postgres:5432/${POSTGRES_DB:-medical_ocr}
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      # MinIO
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-ocr-crops}
+      MINIO_SECURE: "false"
+      # OCR Engine
+      PADDLEOCR_LANG: ${PADDLEOCR_LANG:-ar,en}
+      TROCR_MODEL_PATH: ${TROCR_MODEL_PATH:-}
+      # FHIR
+      FHIR_VERSION: R4
+      # Security
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      PROMETHEUS_ENABLED: "true"
+      # Workers
+      WORKERS: ${WORKERS:-4}
+      # Upload
+      UPLOAD_DIR: /data/uploads
+      CROP_DIR: /data/crops
+      MODELS_DIR: /data/models
+      TEMP_DIR: /data/tmp
+    volumes:
+      - uploads_data:/data/uploads
+      - crops_data:/data/crops
+      - models_data:/data/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS:-4}"
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker — Async Task Processing
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: "3.10"
+    container_name: medocr-celery-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ocr_user}:${POSTGRES_PASSWORD:-ocr_password_123}@postgres:5432/${POSTGRES_DB:-medical_ocr}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-ocr-crops}
+      MINIO_SECURE: "false"
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      UPLOAD_DIR: /data/uploads
+      CROP_DIR: /data/crops
+      MODELS_DIR: /data/models
+    volumes:
+      - uploads_data:/data/uploads
+      - crops_data:/data/crops
+      - models_data:/data/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2 --max-tasks-per-child=100
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat — Periodic Task Scheduler
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: "3.10"
+    container_name: medocr-celery-beat
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ocr_user}:${POSTGRES_PASSWORD:-ocr_password_123}@postgres:5432/${POSTGRES_DB:-medical_ocr}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
+  # Gradio — Interactive ML/UI Interface
+  # ---------------------------------------------------------------------------
+  gradio:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gradio
+      args:
+        PYTHON_VERSION: "3.10"
+    container_name: medocr-gradio
+    restart: unless-stopped
+    ports:
+      - "${GRADIO_PORT:-7860}:7860"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ocr_user}:${POSTGRES_PASSWORD:-ocr_password_123}@postgres:5432/${POSTGRES_DB:-medical_ocr}
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-ocr-crops}
+      MINIO_SECURE: "false"
+      PADDLEOCR_LANG: ${PADDLEOCR_LANG:-ar,en}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      UPLOAD_DIR: /data/uploads
+      MODELS_DIR: /data/models
+    volumes:
+      - uploads_data:/data/uploads
+      - models_data:/data/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    command: python -m app.gradio_app
+    networks:
+      - medocr-net
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  uploads_data:
+    driver: local
+  crops_data:
+    driver: local
+  models_data:
+    driver: local
+
+# =============================================================================
+# Network
+# =============================================================================
+networks:
+  medocr-net:
+    driver: bridge

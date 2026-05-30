@@ -50,6 +50,7 @@ from app.routers import (
     ai,
     clinical,
 )
+from app.routers import auth as auth_router
 
 # ─────────────────────────────────────────────────────────────
 # Logging Setup
@@ -248,6 +249,12 @@ app.include_router(parsers.router, tags=["parsers"])
 app.include_router(media.router, tags=["media"])
 app.include_router(ai.router, tags=["ai"])
 app.include_router(clinical.router, tags=["clinical"])
+
+# ─────────────────────────────────────────────────────────────
+# Authentication Router (RBAC + JWT)
+# ─────────────────────────────────────────────────────────────
+
+app.include_router(auth_router.router, tags=["authentication"])
 
 # ─────────────────────────────────────────────────────────────
 # Prometheus Metrics Endpoint

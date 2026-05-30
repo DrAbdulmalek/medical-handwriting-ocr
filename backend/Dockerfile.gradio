@@ -1,0 +1,98 @@
+# =============================================================================
+# Dockerfile — Gradio Service for Medical Data Analysis Platform
+# =============================================================================
+#
+# Multi-stage build for the interactive Gradio ML/UI interface.
+# Based on python:3.10-slim with system dependencies for OCR, document
+# parsing, audio/video processing, and Gradio server.
+#
+# Build:
+#   docker build -f backend/Dockerfile.gradio -t medocr-gradio ./backend
+#
+# Run:
+#   docker run -p 7860:7860 medocr-gradio
+#
+# =============================================================================
+
+ARG PYTHON_VERSION=3.10
+
+# ---------------------------------------------------------------------------
+# Stage 1: Builder — Install Python dependencies
+# ---------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+WORKDIR /build
+
+# Install system dependencies needed for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install \
+    -r requirements.txt
+
+# Install Gradio
+RUN pip install --no-cache-dir --prefix=/install \
+    gradio==4.44.0 \
+    nest-asyncio==1.6.0
+
+# ---------------------------------------------------------------------------
+# Stage 2: Runtime — Production image
+# ---------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+LABEL maintainer="Medical OCR Team"
+LABEL description="Medical Data Analysis Platform — Gradio Interactive UI"
+LABEL version="1.0.0"
+
+# Install system runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # OpenCV / image processing
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    # Audio / video processing (Whisper, FFmpeg)
+    ffmpeg \
+    # Tesseract OCR (fallback)
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-ara \
+    # Networking / health checks
+    curl \
+    # Utilities
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY app/ ./app/
+
+# Create data directories
+RUN mkdir -p /data/uploads /data/crops /data/models /data/tmp
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    GRADIO_SERVER_NAME="0.0.0.0" \
+    GRADIO_SERVER_PORT=7860
+
+# Expose Gradio default port
+EXPOSE 7860
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:7860/ || exit 1
+
+# Entry point
+CMD ["python", "-m", "app.gradio_app"]

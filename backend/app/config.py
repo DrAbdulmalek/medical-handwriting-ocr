@@ -93,6 +93,12 @@ class Settings(BaseSettings):
     UMLS_API_KEY: str = ""
     UMLS_API_BASE: str = "https://uts.nlm.nih.gov"
 
+    # ── JWT Authentication ────────────────────────────────────
+    SECRET_KEY: str = "CHANGE-ME-in-production-use-a-long-random-string"  # Used for JWT signing
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     # ── Security & Rate Limiting ──────────────────────────────
     API_KEY_ENABLED: bool = False  # Set to True in production
     ADMIN_TOKEN: str = ""  # Admin bypass token
