@@ -1,6 +1,6 @@
 gradio>=5.0.0
-paddlepaddle>=2.6.2,<3.0.0
-paddleocr>=2.7.0.3
+paddlepaddle==2.6.2
+paddleocr==2.7.3
 opencv-python-headless>=4.8.1.78
 numpy>=1.24.3,<2.0.0
 Pillow>=10.1.0

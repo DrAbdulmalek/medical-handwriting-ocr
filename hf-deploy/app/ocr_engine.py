@@ -27,8 +27,6 @@ class OCREngine:
         self.paddle = PaddleOCR(
             use_angle_cls=True,
             lang='ar',
-            show_log=False,
-            use_gpu=False,  # HF Spaces typically CPU-only
         )
         logger.info("PaddleOCR initialized (CPU mode)")
 
