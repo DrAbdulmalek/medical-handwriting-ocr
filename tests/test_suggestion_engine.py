@@ -1,5 +1,5 @@
 import pytest
-from backend.app.suggestion_engine import SuggestionEngine, ArabicSoundex
+from app.suggestion_engine import SuggestionEngine, ArabicSoundex
 
 class TestArabicSoundex:
     def test_encode_basic(self):

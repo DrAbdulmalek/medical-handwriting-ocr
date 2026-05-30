@@ -300,8 +300,9 @@ async def health_check() -> Dict:
     # Check database
     try:
         from app.database import SessionLocal
+        from sqlalchemy import text
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         components["database"] = "ok"
     except Exception as e:

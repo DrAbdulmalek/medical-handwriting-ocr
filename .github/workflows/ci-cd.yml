@@ -154,7 +154,7 @@ jobs:
         run: |
           pytest tests/ \
             -m "not integration and not slow" \
-            --cov=backend/app \
+            --cov=app \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-fail-under=60 \

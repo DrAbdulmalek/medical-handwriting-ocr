@@ -160,7 +160,7 @@ class AuditLog(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     file_name = Column(Text, nullable=False)
     original_path = Column(Text, nullable=False)
     page_count = Column(Integer, default=1)
@@ -172,7 +172,7 @@ class Document(Base):
 
 class Page(Base):
     __tablename__ = "pages"
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     document_id = Column(PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
     page_number = Column(Integer, nullable=False)
     image_path = Column(Text, nullable=False)
@@ -186,7 +186,7 @@ class Page(Base):
 
 class TextRegion(Base):
     __tablename__ = "text_regions"
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     page_id = Column(PG_UUID(as_uuid=True), ForeignKey("pages.id"), nullable=False)
     bbox = Column(JSONB, nullable=False)
     script_class = Column(Text, nullable=True)
@@ -210,7 +210,7 @@ class TextRegion(Base):
 
 class ModelVersion(Base):
     __tablename__ = "model_versions"
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     version_name = Column(Text, nullable=False)
     base_model = Column(Text, nullable=True)
     trained_on_count = Column(Integer, default=0)

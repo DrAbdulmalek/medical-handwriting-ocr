@@ -1,5 +1,5 @@
 import pytest
-from backend.app.dictionary_client import DictionaryManager
+from app.dictionary_client import DictionaryManager
 
 class TestDictionaryManager:
     def test_without_token(self):

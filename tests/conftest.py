@@ -2,6 +2,7 @@
 Test configuration and fixtures for pytest.
 """
 
+import io
 import os
 import pytest
 import json
@@ -91,7 +92,6 @@ def sample_text_regions():
 @pytest.fixture
 def sample_crop_image():
     """Create a small test image."""
-    import numpy as np
     from PIL import Image
     img = Image.new("RGB", (100, 30), color=(255, 255, 255))
     buffer = io.BytesIO()
