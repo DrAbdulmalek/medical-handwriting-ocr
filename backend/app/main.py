@@ -295,7 +295,7 @@ app.add_route("/metrics", _metrics_handler, methods=["GET"])
 )
 async def health_check() -> Dict:
     """Check the health of all dependent services."""
-    components = {"database": "unknown", "redis": "unknown", "minio": "unknown"}
+    components = {"database": "unknown", "redis": "unknown", "minio": "unknown", "clamav": "not_enabled"}
 
     # Check database
     try:
@@ -329,6 +329,19 @@ async def health_check() -> Dict:
             components["minio"] = "bucket missing"
     except Exception:
         components["minio"] = "not configured"
+
+    # Check ClamAV virus scanner
+    try:
+        if os.getenv("CLAMAV_ENABLED", "false").lower() == "true":
+            import asyncio
+            from app.validators.virus_scanner import ClamAVScanner
+            scanner = ClamAVScanner()
+            alive = await scanner.ping()
+            components["clamav"] = "ok" if alive else "unreachable"
+        else:
+            components["clamav"] = "not_enabled"
+    except Exception:
+        components["clamav"] = "error"
 
     all_ok = all(v == "ok" for v in components.values())
 

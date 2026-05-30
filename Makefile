@@ -1,6 +1,7 @@
-.PHONY: help setup up down build test lint train export migrate clean logs \
-        shell db shell-celery test-integration test-slow test-medical coverage \
-        deploy-staging deploy-production monitoring train-gpu api-keys
+.PHONY: help setup up up-full down down-full build test lint train export migrate \
+        clean logs shell db monitoring deploy-staging deploy-production \
+        scan-virus scan-health terraform-plan terraform-apply \
+        terraform-plan-multi terraform-apply-multi
 
 # ─────────────────────────────────────────────────────────────
 # Default
@@ -306,3 +307,73 @@ print(f'  Key:      {raw_key}')
 print(f'  (Save this key — it will not be shown again)')
 db.close()
 "
+
+# ─────────────────────────────────────────────────────────────
+# Virus Scanning
+# ─────────────────────────────────────────────────────────────
+
+scan-health: ## Check virus scanner health (ClamAV ping)
+        @echo ">>> Checking virus scanner health..."
+        cd backend && python -c "
+import asyncio, os
+os.environ.setdefault('CLAMAV_HOST', 'localhost')
+os.environ.setdefault('CLAMAV_PORT', '3310')
+os.environ.setdefault('CLAMAV_ENABLED', 'true')
+from app.validators.virus_scanner import ClamAVScanner
+scanner = ClamAVScanner()
+alive = asyncio.run(scanner.ping())
+print(f'  ClamAV: {\"reachable\" if alive else \"not reachable\"}')
+"
+
+scan-virus: ## Scan a file for viruses (usage: make scan-virus file=path/to/file)
+        @echo ">>> Scanning file: $(file)..."
+        cd backend && python -c "
+import asyncio, os, sys
+from app.validators.virus_scanner import VirusScanner
+scanner = VirusScanner()
+with open('$(file)', 'rb') as f:
+    data = f.read()
+report = asyncio.run(scanner.scan_bytes(data))
+print(f'  Result: {\"CLEAN\" if report.is_clean else \"THREAT DETECTED\"}')
+print(f'  SHA-256: {report.file_hash}')
+print(f'  Backends: {list(report.results.keys())}')
+if not report.is_clean:
+    print(f'  Threats: {report.threats}')
+    sys.exit(1)
+"
+
+# ─────────────────────────────────────────────────────────────
+# Terraform (Single Region)
+# ─────────────────────────────────────────────────────────────
+
+terraform-plan: ## Plan Terraform infrastructure (single region)
+        @echo ">>> Planning Terraform infrastructure..."
+        cd terraform && terraform init -backend-config="bucket=medical-ocr-terraform-state" \
+                -backend-config="key=infrastructure/terraform.tfstate" \
+                -backend-config="region=us-east-1" || true
+        cd terraform && terraform plan -var-file=terraform.tfvars -out=tfplan
+
+terraform-apply: ## Apply Terraform infrastructure (single region)
+        @echo ">>> Applying Terraform infrastructure..."
+        cd terraform && terraform apply tfplan
+
+# ─────────────────────────────────────────────────────────────
+# Terraform (Multi-Region)
+# ─────────────────────────────────────────────────────────────
+
+terraform-plan-multi: ## Plan multi-region Terraform deployment
+        @echo ">>> Planning multi-region Terraform deployment..."
+        cd terraform && terraform init
+        cd terraform && terraform plan \
+                -var-file=terraform.tfvars \
+                -var="primary_region=us-east-1" \
+                -var="secondary_region=eu-west-1" \
+                -out=tfplan-multi
+
+terraform-apply-multi: ## Apply multi-region Terraform deployment
+        @echo ">>> Applying multi-region Terraform deployment..."
+        cd terraform && terraform apply tfplan-multi
+        @echo ">>> Multi-region deployment complete."
+        @echo ">>> Primary:   us-east-1"
+        @echo ">>> Secondary: eu-west-1"
+        @echo ">>> DNS failover via Route53 health checks"

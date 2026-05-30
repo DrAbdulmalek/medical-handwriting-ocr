@@ -108,6 +108,18 @@ class Settings(BaseSettings):
     CORRECTION_RATE_LIMIT: str = "60/minute"
     REDIS_RATE_LIMIT_URL: Optional[str] = None  # Falls back to REDIS_URL
 
+    # ── Virus Scanning ──────────────────────────────────────────
+    VIRUS_SCANNER_ENABLED: bool = False  # Enable virus scanning for uploads
+    CLAMAV_ENABLED: bool = False  # Use ClamAV daemon for local scanning
+    CLAMAV_HOST: str = "localhost"
+    CLAMAV_PORT: int = 3310
+    CLAMAV_TIMEOUT: int = 30
+    VIRUSTOTAL_ENABLED: bool = False  # Use VirusTotal cloud API
+    VIRUSTOTAL_API_KEY: str = ""
+    VIRUSTOTAL_API_URL: str = "https://www.virustotal.com/api/v3"
+    VIRUSTOTAL_TIMEOUT: int = 60
+    VIRUSTOTAL_DETECTION_THRESHOLD: int = 1  # Min engine detections to flag
+
     # ── Monitoring ─────────────────────────────────────────────
     ENVIRONMENT: str = "development"  # development | staging | production
     LOG_LEVEL: str = "INFO"

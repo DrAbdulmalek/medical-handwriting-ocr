@@ -23,6 +23,18 @@ import re
 from typing import List, Tuple
 
 # ---------------------------------------------------------------------------
+# Virus scanning (optional, async – safe to import even if disabled)
+# ---------------------------------------------------------------------------
+
+try:
+    from app.validators.virus_scanner import scan_upload
+    _VIRUS_SCAN_AVAILABLE = True
+except ImportError:
+    _VIRUS_SCAN_AVAILABLE = False
+    logger_virus = logging.getLogger(__name__)
+    logger_virus.warning("virus_scanner module not importable; virus checks disabled")
+
+# ---------------------------------------------------------------------------
 # Logger
 # ---------------------------------------------------------------------------
 
@@ -387,6 +399,7 @@ def validate_upload(
     contents: bytes,
     filename: str,
     content_type: str,
+    skip_virus_scan: bool = False,
 ) -> Tuple[bool, str]:
     """Run the full upload validation pipeline.
 
@@ -398,6 +411,9 @@ def validate_upload(
     3. **Magic-byte check** – verifies the content matches a known file type.
     4. **Content-Type consistency check** – confirms the declared MIME type is
        plausible given the actual content.
+    5. **Virus scan** – scans file content with ClamAV and/or VirusTotal
+       (if enabled).  Fail-open on scanner errors to avoid blocking legitimate
+       uploads due to scanner misconfiguration.
 
     If any step fails the function returns immediately with ``False`` and a
     descriptive error.  All failures are logged at ``WARNING`` level.
@@ -406,6 +422,8 @@ def validate_upload(
         contents: Raw file bytes.
         filename: Original filename supplied by the client.
         content_type: MIME type from the ``Content-Type`` header.
+        skip_virus_scan: If ``True``, skip the virus scanning step.  Useful
+            for internal/automated uploads where the source is trusted.
 
     Returns:
         ``(is_valid, error_message)`` – on success *error_message* is empty.
@@ -453,11 +471,130 @@ def validate_upload(
         # Not a hard rejection – log a warning but allow through, since the
         # magic bytes are the authoritative signal.
 
+    # ── Step 6: virus scan (if enabled) ──────────────────────────────
+    if not skip_virus_scan and _VIRUS_SCAN_AVAILABLE:
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're inside an async context (FastAPI) – run directly
+                report = asyncio.ensure_future(scan_upload(contents, safe_name))
+                # Note: caller should use validate_upload_async instead in async
+                # contexts.  This sync path is provided as a convenience fallback.
+                logger.info(
+                    "Virus scan queued for async execution: file='%s'", safe_name
+                )
+            else:
+                report = loop.run_until_complete(scan_upload(contents, safe_name))
+                if not report.is_clean:
+                    threats = ", ".join(report.threats) if report.threats else "unknown"
+                    msg = (
+                        f"Virus scan detected threats in uploaded file: {threats} "
+                        f"(sha256: {report.file_hash[:16]}...)"
+                    )
+                    logger.warning(
+                        msg,
+                        extra={"fields": {
+                            "threats": report.threats,
+                            "file_hash": report.file_hash,
+                            "backends": list(report.results.keys()),
+                        }},
+                    )
+                    return (False, msg)
+        except Exception as exc:
+            logger.error("Virus scan error (fail-open): %s", exc)
+
     logger.info(
         "Upload validation passed: file='%s' type='%s' size=%d bytes",
         safe_name,
         detected_type,
         len(contents),
+        extra={
+            "fields": {
+                "filename": safe_name,
+                "detected_type": detected_type,
+                "content_type": content_type,
+                "file_size": len(contents),
+            }
+        },
+    )
+    return (True, "")
+
+
+async def validate_upload_async(
+    contents: bytes,
+    filename: str,
+    content_type: str,
+    skip_virus_scan: bool = False,
+) -> Tuple[bool, str]:
+    """Async version of :func:`validate_upload` for use in FastAPI routers.
+
+    Performs the same validation pipeline as :func:`validate_upload`, but
+    runs the virus scan step natively as an async coroutine without the
+    overhead of ``run_until_complete``.
+
+    Args:
+        contents: Raw file bytes.
+        filename: Original filename supplied by the client.
+        content_type: MIME type from the ``Content-Type`` header.
+        skip_virus_scan: If ``True``, skip the virus scanning step.
+
+    Returns:
+        ``(is_valid, error_message)`` – on success *error_message* is empty.
+    """
+    # ── Steps 1-5: sync checks (filename, size, magic, content-type) ───
+    safe_name = sanitize_filename(filename)
+    if safe_name == "unnamed_upload" and filename:
+        return (False, "Filename contains disallowed characters or extension")
+
+    size_ok, size_err = check_file_size(contents)
+    if not size_ok:
+        return (False, size_err)
+
+    magic_ok, magic_err, detected_type = check_magic_bytes(contents)
+    if not magic_ok:
+        return (False, magic_err)
+
+    if not check_content_type(content_type, detected_type):
+        return (
+            False,
+            f"Content-Type '{content_type}' does not match detected file type "
+            f"'{detected_type}'",
+        )
+
+    ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
+    expected_extensions = _TYPE_TO_EXTENSIONS.get(detected_type, [])
+    if ext and ext not in expected_extensions:
+        logger.warning(
+            "Filename extension '.%s' does not match detected type '%s'",
+            ext, detected_type,
+        )
+
+    # ── Step 6: virus scan (async, if enabled) ────────────────────────
+    if not skip_virus_scan and _VIRUS_SCAN_AVAILABLE:
+        try:
+            report = await scan_upload(contents, safe_name)
+            if not report.is_clean:
+                threats = ", ".join(report.threats) if report.threats else "unknown"
+                msg = (
+                    f"Virus scan detected threats in uploaded file: {threats} "
+                    f"(sha256: {report.file_hash[:16]}...)"
+                )
+                logger.warning(
+                    msg,
+                    extra={"fields": {
+                        "threats": report.threats,
+                        "file_hash": report.file_hash,
+                        "backends": list(report.results.keys()),
+                    }},
+                )
+                return (False, msg)
+        except Exception as exc:
+            logger.error("Virus scan error (fail-open): %s", exc)
+
+    logger.info(
+        "Upload validation passed: file='%s' type='%s' size=%d bytes",
+        safe_name, detected_type, len(contents),
         extra={
             "fields": {
                 "filename": safe_name,

@@ -58,3 +58,7 @@ python-dotenv==1.0.0
 requests==2.31.0
 aiofiles==23.2.1
 tqdm==4.66.1
+
+# ── Virus Scanning (optional backends) ──
+aiohttp==3.9.1          # Async HTTP client (VirusTotal API)
+clamd==1.0.2            # ClamAV daemon client (alternative to raw socket)

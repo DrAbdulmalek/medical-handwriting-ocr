@@ -17,6 +17,13 @@
 environment = "staging"    # development | staging | production
 region      = "us-east-1"
 
+# ── Multi-Region Configuration (optional) ──
+# Uncomment to enable multi-region deployment (requires multi-region module)
+# primary_region   = "us-east-1"
+# secondary_region = "eu-west-1"
+# domain_name      = "api.medical-ocr.example.com"
+# enable_gpu       = true
+
 # VPC CIDR block (default: 10.0.0.0/16)
 # vpc_cidr = "10.0.0.0/16"
 

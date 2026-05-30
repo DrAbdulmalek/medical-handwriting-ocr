@@ -9,6 +9,7 @@
 #   - postgres   : PostgreSQL with pgvector for vector search
 #   - redis      : Redis for caching, rate limiting, and Celery broker
 #   - minio      : MinIO S3-compatible object storage for uploads
+#   - clamav     : ClamAV daemon for virus scanning
 #   - backend    : FastAPI application server
 #   - celery-worker: Celery worker for async tasks
 #   - celery-beat : Celery beat scheduler for periodic tasks
@@ -96,6 +97,26 @@ services:
       - medocr-net
 
   # ---------------------------------------------------------------------------
+  # ClamAV — Anti-Virus Daemon for File Scanning
+  # ---------------------------------------------------------------------------
+  clamav:
+    image: clamav/clamav:latest
+    container_name: medocr-clamav
+    restart: unless-stopped
+    ports:
+      - "${CLAMAV_PORT:-3310}:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "echo PING | nc localhost 3310 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # ClamAV needs time to download fresh signatures
+    networks:
+      - medocr-net
+
+  # ---------------------------------------------------------------------------
   # Backend — FastAPI Application
   # ---------------------------------------------------------------------------
   backend:
@@ -138,6 +159,11 @@ services:
       CROP_DIR: /data/crops
       MODELS_DIR: /data/models
       TEMP_DIR: /data/tmp
+      # Virus Scanning
+      VIRUS_SCANNER_ENABLED: "${VIRUS_SCANNER_ENABLED:-true}"
+      CLAMAV_ENABLED: "${CLAMAV_ENABLED:-true}"
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: "3310"
     volumes:
       - uploads_data:/data/uploads
       - crops_data:/data/crops
@@ -148,6 +174,8 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -284,6 +312,8 @@ volumes:
   crops_data:
     driver: local
   models_data:
+    driver: local
+  clamav_data:
     driver: local
 
 # =============================================================================
