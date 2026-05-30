@@ -1,8 +1,20 @@
 """
 Medical Handwriting OCR — FastAPI Application
 
-A production-ready OCR system for Arabic medical handwriting with:
-- PaddleOCR + TrOCR dual-engine recognition
+A comprehensive medical data analysis platform with:
+- PaddleOCR + TrOCR dual-engine handwriting recognition
+- Multi-format document parsing (PDF, DOCX, PPTX, HTML) via Marker + Surya
+- Advanced medical image analysis via Florence-2
+- Audio/Video transcription via Whisper + speaker diarization
+- Medical web crawling (PubMed, NEJM, WHO guidelines)
+- Batch processing engine (Celery)
+- Dynamic text chunking & semantic splitting for RAG
+- Structured medical data extraction (vitals, meds, diagnoses, labs)
+- Patient profile builder with visit timeline
+- FHIR R4 mapping for clinical interoperability
+- LLM integration (LangChain) + RAG engine with vector search
+- Clinical decision support (drug interactions, dosage validation, QA)
+- Medical guideline tracking (WHO, CDC, AHA, ESC, NICE)
 - Human-in-the-loop correction workflow
 - Dictionary integration (Arabic medical terms)
 - UMLS/SNOMED medical term validation
@@ -33,6 +45,10 @@ from app.routers import (
     deployment,
     reports,
     dicom,
+    parsers,
+    media,
+    ai,
+    clinical,
 )
 
 # ─────────────────────────────────────────────────────────────
@@ -50,7 +66,7 @@ logger = logging.getLogger("medical_ocr")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: create tables, warm models.  Shutdown: cleanup."""
-    logger.info("Starting Medical Handwriting OCR API v3.0")
+    logger.info("Starting Medical Data Analysis Platform API v4.0")
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables verified / created")
     yield
@@ -64,30 +80,43 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Medical Handwriting OCR API",
     description=(
-        "## Adaptive OCR System for Arabic Medical Notes\n\n"
-        "This API provides end-to-end handwriting recognition for medical "
-        "prescriptions and clinical notes, with support for:\n\n"
-        "- **Dual-engine OCR**: PaddleOCR (fast) + TrOCR (accurate)\n"
-        "- **Smart Corrections**: 6-strategy suggestion engine with dictionary, "
-        "edit distance, Arabic Soundex, previous corrections, context, and "
-        "medical abbreviation expansion\n"
-        "- **Dictionary Integration**: Arabic medical term dictionaries with "
-        "GitHub-based token authentication\n"
-        "- **UMLS/SNOMED**: Medical term validation against the UMLS "
-        "terminology server\n"
-        "- **DICOM Support**: Upload and process DICOM medical images\n"
-        "- **Async Processing**: Celery workers for background OCR tasks\n"
-        "- **Continual Learning**: EWC-based fine-tuning with replay buffer\n"
-        "- **PDF/Excel Reports**: Generate comprehensive OCR analytics reports\n\n"
+        "## Comprehensive Medical Data Analysis Platform\n\n"
+        "Evolved from an Arabic handwriting OCR system into a full-spectrum "
+        "medical data analysis platform that processes **any medical data source**:\n\n"
+        "### Core OCR (Original)\n"
+        "- **Dual-engine OCR**: PaddleOCR (fast) + TrOCR (accurate) for handwriting\n"
+        "- **Smart Corrections**: 6-strategy suggestion engine\n"
+        "- **UMLS/SNOMED**: Medical term validation\n"
+        "- **Continual Learning**: EWC-based fine-tuning with replay buffer\n\n"
+        "### Document & Image Processing (OmniParse Integration)\n"
+        "- **Document Parser**: PDF, DOCX, PPTX, HTML via Marker + Surya\n"
+        "- **Table Extraction**: Advanced table recognition and structuring\n"
+        "- **Medical Image Analysis**: Florence-2 captioning, detection, OCR\n"
+        "- **Medical Element Detection**: Prescriptions, stamps, signatures\n\n"
+        "### Media Processing\n"
+        "- **Audio Transcription**: Whisper with Arabic/English support\n"
+        "- **Video Processing**: Audio extraction, keyframe analysis, transcription\n"
+        "- **Speaker Diarization**: Doctor/patient/nurse identification\n"
+        "- **Web Crawling**: PubMed, NEJM, WHO guideline extraction\n\n"
+        "### AI & Clinical Intelligence\n"
+        "- **RAG Engine**: Vector search + LLM-powered medical QA\n"
+        "- **Schema Extraction**: Vitals, medications, diagnoses, labs\n"
+        "- **Patient Profiles**: Multi-visit timeline aggregation\n"
+        "- **FHIR R4**: Standard clinical data interchange\n"
+        "- **Clinical QA**: Evidence-based answers with citations\n"
+        "- **Drug Interactions**: Safety checking with contraindication warnings\n"
+        "- **Guideline Tracker**: Real-time monitoring of WHO, CDC, AHA updates\n\n"
+        "### Infrastructure\n"
+        "- **Batch Processing**: Celery-powered bulk processing\n"
+        "- **20+ File Types**: PDF, DOC, PPT, PNG, MP4, MP3, WEB, DICOM\n"
+        "- **MIT License**: Full commercial freedom\n\n"
         "### Authentication\n\n"
-        "All endpoints accept an `X-API-Key` header for authentication. "
-        "Admin endpoints require the `X-Admin-Token` header.\n\n"
+        "All endpoints accept an `X-API-Key` header. "
+        "Admin endpoints require `X-Admin-Token`.\n\n"
         "### Rate Limiting\n\n"
-        "- Default: 100 requests/minute per IP\n"
-        "- Upload endpoint: 20 requests/minute per IP\n"
-        "- Correction endpoint: 60 requests/minute per IP\n"
+        "- Default: 100 req/min | Upload: 20 req/min | Correction: 60 req/min\n"
     ),
-    version="3.0.0",
+    version="4.0.0",
     lifespan=lifespan,
     contact={
         "name": "Dr. Abdulmalek",
@@ -105,6 +134,10 @@ app = FastAPI(
         {"name": "deployment", "description": "Model version management and deployment"},
         {"name": "reports", "description": "Generate PDF/Excel analytics reports"},
         {"name": "dicom", "description": "Upload and process DICOM medical images"},
+        {"name": "parsers", "description": "Multi-format document parsing, table extraction, medical image analysis, batch processing"},
+        {"name": "media", "description": "Audio/video transcription, speaker diarization, web crawling, universal content extraction"},
+        {"name": "ai", "description": "Text chunking, schema extraction, patient profiles, FHIR conversion, RAG engine"},
+        {"name": "clinical", "description": "Guideline tracking, clinical QA, drug interactions, dosage validation, progress tracking"},
     ],
 )
 
@@ -208,6 +241,15 @@ app.include_router(reports.router, tags=["reports"])
 app.include_router(dicom.router, tags=["dicom"])
 
 # ─────────────────────────────────────────────────────────────
+# New Routers (OmniParse Integration)
+# ─────────────────────────────────────────────────────────────
+
+app.include_router(parsers.router, tags=["parsers"])
+app.include_router(media.router, tags=["media"])
+app.include_router(ai.router, tags=["ai"])
+app.include_router(clinical.router, tags=["clinical"])
+
+# ─────────────────────────────────────────────────────────────
 # Prometheus Metrics Endpoint
 # ─────────────────────────────────────────────────────────────
 
@@ -287,7 +329,7 @@ async def health_check() -> Dict:
         status_code=200 if all_ok else 503,
         content={
             "status": "healthy" if all_ok else "degraded",
-            "version": "3.0.0",
+            "version": "4.0.0",
             "components": components,
         },
     )
@@ -317,8 +359,8 @@ async def health_check() -> Dict:
 async def root() -> Dict:
     """API root — returns version and available endpoints."""
     return {
-        "message": "Medical Handwriting OCR API v3.0",
-        "version": "3.0.0",
+        "message": "Medical Data Analysis Platform API v4.0",
+        "version": "4.0.0",
         "endpoints": {
             "upload": "POST /api/upload",
             "correct": "POST /api/correct",
@@ -329,6 +371,29 @@ async def root() -> Dict:
             "deployment": "GET /api/deployment/status",
             "reports": "GET /api/reports/generate",
             "dicom": "POST /api/dicom/upload",
+            "parse_document": "POST /api/parse/document",
+            "parse_tables": "POST /api/parse/tables",
+            "analyze_image": "POST /api/parse/image/analyze",
+            "medical_detect": "POST /api/parse/medical/detect",
+            "batch_process": "POST /api/parse/batch",
+            "audio_transcribe": "POST /api/media/audio/transcribe",
+            "video_transcribe": "POST /api/media/video/transcribe",
+            "speaker_diarize": "POST /api/media/diarize",
+            "web_crawl": "POST /api/media/web/crawl",
+            "pubmed_search": "GET /api/media/web/pubmed",
+            "universal_extract": "POST /api/media/extract",
+            "chunk_text": "POST /api/ai/chunk",
+            "schema_extract": "POST /api/ai/schema/extract",
+            "patient_profile": "POST /api/ai/patient/profile",
+            "fhir_convert": "POST /api/ai/fhir/convert",
+            "rag_index": "POST /api/ai/rag/index",
+            "rag_search": "POST /api/ai/rag/search",
+            "rag_ask": "POST /api/ai/rag/ask",
+            "guidelines": "GET /api/clinical/guidelines",
+            "clinical_qa": "POST /api/clinical/qa/ask",
+            "drug_interactions": "POST /api/clinical/drug/interactions",
+            "dosage_validate": "POST /api/clinical/dosage/validate",
+            "progress": "GET /api/clinical/progress/{session_id}",
             "docs": "/docs",
             "redoc": "/redoc",
             "metrics": "/metrics",
