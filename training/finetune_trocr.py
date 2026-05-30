@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Dict, List
 
 import torch
-from torch.utils.data import Dataset
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from transformers import (
     TrOCRProcessor,
@@ -172,11 +173,16 @@ def train_trocr(
 
     # EWC Integration (if enabled)
     if use_ewc:
-        print("\nEWC: Computing importance weights for previous model...")
-        # Compute Fisher Information Matrix for EWC
-        # This would normally use the previous model's parameters
-        print(f"EWC lambda: {ewc_lambda}")
-        print(f"Replay ratio: {replay_ratio}")
+        print("\nEWC: Computing Fisher Information Matrix from previous model...")
+        ewc_regularization = _compute_ewc_penalty(model, previous_model, train_dataset, ewc_lambda, processor, device)
+        print(f"  EWC lambda: {ewc_lambda}")
+        print(f"  EWC parameters tracked: {len(ewc_regularization['param_names'])}")
+        print(f"  Total EWC penalty weight: {ewc_regularization['total_penalty']:.6f}")
+
+        # Apply EWC as a custom loss modifier by wrapping compute_loss
+        if ewc_regularization['total_penalty'] > 0:
+            _apply_ewc_to_trainer(trainer, model, ewc_regularization, device)
+            print("  EWC regularization applied to trainer")
 
     # Initialize trainer
     trainer = Seq2SeqTrainer(
@@ -256,3 +262,138 @@ if __name__ == '__main__':
         ewc_lambda=args.ewc_lambda,
         replay_ratio=args.replay_ratio
     )
+
+
+# =============================================================================
+# EWC (Elastic Weight Consolidation) Implementation
+# =============================================================================
+
+def _compute_ewc_penalty(
+    current_model: VisionEncoderDecoderModel,
+    previous_model: VisionEncoderDecoderModel,
+    dataset: Dataset,
+    ewc_lambda: float,
+    processor: TrOCRProcessor,
+    device: torch.device,
+    num_samples: int = 200,
+) -> Dict:
+    """Compute Fisher Information Matrix for EWC regularization.
+
+    Estimates the importance of each parameter by computing the diagonal
+    of the Fisher Information Matrix using a sample of the training data.
+    This measures how sensitive the loss is to changes in each parameter
+    for the previous task.
+
+    Args:
+        current_model: The new model being fine-tuned.
+        previous_model: The previous model checkpoint (frozen).
+        dataset: Training dataset to compute Fisher on.
+        ewc_lambda: Regularization strength.
+        processor: TrOCR processor for text encoding.
+        device: Torch device.
+        num_samples: Number of samples to estimate Fisher (reduced for speed).
+
+    Returns:
+        Dictionary with Fisher diagonal, optimal parameters, and param names.
+    """
+    current_model.eval()
+    fisher = {}
+    param_names = []
+
+    # Store current model parameters as "optimal" (theta_star)
+    optimal_params = {}
+    for name, param in current_model.named_parameters():
+        if param.requires_grad:
+            optimal_params[name] = param.data.clone().cpu()
+            fisher[name] = torch.zeros_like(param.data).cpu()
+            param_names.append(name)
+
+    # Estimate Fisher Information using a subset of data
+    sample_size = min(num_samples, len(dataset))
+    indices = torch.randperm(len(dataset))[:sample_size].tolist()
+
+    current_model.train()
+    data_loader = DataLoader(dataset, batch_size=4, shuffle=False, sampler=indices)
+
+    for i, batch in enumerate(data_loader):
+        if i >= num_samples // 4:  # Limit iterations for speed
+            break
+
+        pixel_values = batch["pixel_values"].to(device)
+        labels = batch["labels"].to(device)
+
+        # Forward pass to get logits
+        outputs = current_model(pixel_values=pixel_values, labels=labels)
+        loss = outputs.loss
+
+        # Compute gradients (log-likelihood gradient)
+        current_model.zero_grad()
+        loss.backward()
+
+        # Accumulate squared gradients (diagonal Fisher)
+        for name, param in current_model.named_parameters():
+            if param.requires_grad and param.grad is not None:
+                fisher[name] += param.grad.data.pow(2).cpu()
+
+    # Average Fisher over samples
+    actual_samples = min(i + 1, num_samples // 4) * 4
+    for name in fisher:
+        fisher[name] /= max(actual_samples, 1)
+
+    # Compute initial penalty (for logging)
+    total_penalty = 0.0
+    for name in fisher:
+        total_penalty += (fisher[name] * (optimal_params[name] - optimal_params[name])).sum().item()
+
+    return {
+        "fisher": fisher,
+        "optimal_params": optimal_params,
+        "param_names": param_names,
+        "ewc_lambda": ewc_lambda,
+        "total_penalty": total_penalty,
+    }
+
+
+def _apply_ewc_to_trainer(
+    trainer: Seq2SeqTrainer,
+    model: VisionEncoderDecoderModel,
+    ewc_reg: Dict,
+    device: torch.device,
+) -> None:
+    """Apply EWC regularization to the trainer's loss computation.
+
+    Wraps the trainer's training step to add the EWC penalty term:
+        L_total = L_task + lambda * sum_i(F_i * (theta_i - theta_star_i)^2)
+
+    Args:
+        trainer: The Seq2SeqTrainer instance.
+        model: The model being trained.
+        ewc_reg: Dictionary from _compute_ewc_penalty.
+        device: Torch device.
+    """
+    fisher = ewc_reg["fisher"]
+    optimal_params = ewc_reg["optimal_params"]
+    lam = ewc_reg["ewc_lambda"]
+
+    original_training_step = trainer.training_step
+
+    def training_step_with_ewc(model, inputs, **kwargs):
+        # Compute standard loss
+        loss = original_training_step(model, inputs, **kwargs)
+
+        # Add EWC penalty
+        if loss is not None and isinstance(loss, torch.Tensor):
+            ewc_penalty = torch.tensor(0.0, device=device)
+            count = 0
+            for name, param in model.named_parameters():
+                if name in fisher and param.requires_grad:
+                    param_dev = param.data.to("cpu") - optimal_params[name]
+                    ewc_penalty += (fisher[name] * param_dev.pow(2)).sum()
+                    count += 1
+            ewc_penalty = ewc_penalty.to(device) * lam
+            loss = loss + ewc_penalty
+
+        return loss
+
+    # Monkey-patch the training step (HuggingFace Seq2SeqTrainer)
+    trainer.training_step = training_step_with_ewc
