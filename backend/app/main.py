@@ -50,6 +50,7 @@ from app.routers import (
     ai,
     clinical,
 )
+from app.routers import mobile as mobile_router
 from app.routers import auth as auth_router
 
 # ─────────────────────────────────────────────────────────────
@@ -249,6 +250,16 @@ app.include_router(parsers.router, tags=["parsers"])
 app.include_router(media.router, tags=["media"])
 app.include_router(ai.router, tags=["ai"])
 app.include_router(clinical.router, tags=["clinical"])
+
+# ─────────────────────────────────────────────────────────────
+# Authentication Router (RBAC + JWT)
+# ─────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# Mobile Sync Router
+# ─────────────────────────────────────────────────────────────
+
+app.include_router(mobile_router.router, tags=["mobile"])
 
 # ─────────────────────────────────────────────────────────────
 # Authentication Router (RBAC + JWT)

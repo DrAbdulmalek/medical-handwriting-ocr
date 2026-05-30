@@ -1,0 +1,12 @@
+# Firebase App Distribution Testers
+# Format: email, group1, group2, ...
+
+# Doctors
+doctor.ahmed@hospital.sa testers, doctors
+doctor.fatima@clinic.sa testers, doctors
+
+# Developers
+dev.team@medocr.com testers, developers
+
+# QA Team
+qa.lead@medocr.com testers, qa
