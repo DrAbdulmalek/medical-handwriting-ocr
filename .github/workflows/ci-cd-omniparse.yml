@@ -55,7 +55,7 @@ jobs:
           - 9000:9000
           - 9001:9001
         options: >-
-          --health-cmd="mc ready local"
+          --health-cmd="curl -f http://localhost:9000/minio/health/live"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -98,10 +98,19 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-cov pytest-asyncio pytest-mock
-          pip install flake8 flake8-bugbear black isort
-          pip install httpx
+          # Use CPU-only PaddlePaddle for CI (much faster, no GPU needed)
+          pip install paddlepaddle==2.6.2 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+          # Install remaining dependencies (skip torch — not needed for unit tests)
+          pip install -r backend/requirements.txt --ignore-installed paddlepaddle || \
+            pip install fastapi uvicorn[standard] python-multipart pydantic pydantic-settings \
+              sqlalchemy psycopg2-binary alembic PyJWT passlib[bcrypt] PyGithub \
+              rapidfuzz pydicom reportlab openpyxl slowapi boto3 minio \
+              prometheus-client prometheus-fastapi-instrumentator \
+              python-json-logger structlog redis celery[redis] flower \
+              python-dotenv requests aiofiles tqdm aiohttp clamd \
+              opencv-python-headless Pillow numpy paddleocr
+          pip install pytest pytest-cov pytest-asyncio pytest-mock \
+            flake8 flake8-bugbear black isort httpx
 
       - name: Lint with flake8
         run: |
@@ -274,7 +283,9 @@ jobs:
 
     steps:
       - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
         uses: slackapi/slack-github-action@v1.25.0
+        continue-on-error: true
         with:
           payload: |
             {
@@ -284,7 +295,7 @@ jobs:
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🏥 Medical OCR — CI/CD Pipeline",
+                    "text": "Medical OCR - CI/CD Pipeline",
                     "emoji": true
                   }
                 },
@@ -314,11 +325,11 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Test:* ${{ needs.test.result == 'success' && '✅ Passed' || needs.test.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
+                      "text": "*Test:* ${{ needs.test.result == 'success' && 'Passed' || needs.test.result == 'skipped' && 'Skipped' || 'Failed' }}"
                     },
                     {
                       "type": "mrkdwn",
-                      "text": "*Build:* ${{ needs.build.result == 'success' && '✅ Passed' || needs.build.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}"
+                      "text": "*Build:* ${{ needs.build.result == 'success' && 'Passed' || needs.build.result == 'skipped' && 'Skipped' || 'Failed' }}"
                     }
                   ]
                 },
