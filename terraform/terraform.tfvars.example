@@ -1,0 +1,43 @@
+# =============================================================================
+# Medical Handwriting OCR — Terraform Variable Values Example
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in the values for your
+# environment. Values here override variable defaults in main-refactored.tf.
+#
+# Usage:
+#   cp terraform.tfvars.example terraform.tfvars
+#   # Edit terraform.tfvars with your values, then:
+#   terraform plan -var-file=terraform.tfvars
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Configuration
+# -----------------------------------------------------------------------------
+
+environment = "staging"    # development | staging | production
+region      = "us-east-1"
+
+# VPC CIDR block (default: 10.0.0.0/16)
+# vpc_cidr = "10.0.0.0/16"
+
+# -----------------------------------------------------------------------------
+# Sensitive Secrets
+# -----------------------------------------------------------------------------
+# These values should ideally come from environment variables or a secrets
+# manager rather than being stored in a .tfvars file committed to VCS.
+
+# dictionary_repo_token = "your-dictionary-repo-token-here"
+# umls_api_key           = "your-umls-api-key-here"
+# admin_token            = "your-admin-token-here"
+# minio_access_key       = "your-minio-access-key"
+# minio_secret_key       = "your-minio-secret-key"
+
+# -----------------------------------------------------------------------------
+# Monitoring & Alerts
+# -----------------------------------------------------------------------------
+
+# Email addresses that will receive CloudWatch alarm notifications
+# alarm_email_addresses = [
+#   "oncall@example.com",
+#   "team-alerts@example.com",
+# ]

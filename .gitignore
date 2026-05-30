@@ -48,3 +48,4 @@ hf_dataset/
 
 # Model caches
 .cache/
+node_modules
