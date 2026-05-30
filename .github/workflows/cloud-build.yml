@@ -1,0 +1,194 @@
+# .github/workflows/cloud-build.yml
+# MedOCR — Cloud Build CI/CD Pipeline
+# Builds APK on every push and distributes to Firebase / Play Store
+
+name: Cloud Build
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'mobile/**'
+      - 'backend/**'
+      - 'cloud-install.sh'
+  pull_request:
+    branches: [ main ]
+
+env:
+  APP_NAME: MedOCR
+  VERSION: "1.0.0"
+
+jobs:
+  # ── Build Android Packages ──
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set version
+      id: version
+      run: echo "version=v${VERSION}.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install dependencies
+      working-directory: ./mobile
+      run: npm ci
+
+    - name: Build React app
+      working-directory: ./mobile
+      run: npm run build
+
+    - name: Sync Capacitor
+      working-directory: ./mobile
+      run: npx cap sync android
+
+    - name: Build Debug APK
+      working-directory: ./mobile/android
+      run: ./gradlew assembleDebug
+
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: MedOCR-debug-apk
+        path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7
+
+    - name: Build Release APK (main only)
+      if: github.ref == 'refs/heads/main'
+      working-directory: ./mobile/android
+      run: ./gradlew assembleRelease
+
+    - name: Upload Release APK
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: MedOCR-release-apk
+        path: mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+        retention-days: 30
+
+    - name: Build AAB (main only)
+      if: github.ref == 'refs/heads/main'
+      working-directory: ./mobile/android
+      run: ./gradlew bundleRelease
+
+    - name: Upload AAB
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: MedOCR-aab
+        path: mobile/android/app/build/outputs/bundle/release/app-release.aab
+        retention-days: 30
+
+    - name: Generate Build Report
+      if: github.ref == 'refs/heads/main'
+      run: |
+        mkdir -p cloud-build
+        cat > cloud-build/build-report.json << EOF
+        {
+          "version_name": "${{ steps.version.outputs.version }}",
+          "build_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "git_commit": "${GITHUB_SHA:0:7}",
+          "git_branch": "${GITHUB_REF_NAME}",
+          "run_id": "${{ github.run_id }}",
+          "runner": "${{ runner.os }}",
+          "trigger": "${{ github.event_name }}"
+        }
+        EOF
+
+    - name: Upload Build Report
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-report
+        path: cloud-build/build-report.json
+        retention-days: 30
+
+  # ── Firebase Distribution ──
+  firebase-distribute:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download Debug APK
+      uses: actions/download-artifact@v4
+      with:
+        name: MedOCR-debug-apk
+        path: ./apk
+
+    - name: Setup Firebase CLI
+      run: npm install -g firebase-tools
+
+    - name: Distribute to Firebase
+      env:
+        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      run: |
+        firebase appdistribution:distribute ./apk/app-debug.apk \
+          --app "${{ secrets.FIREBASE_APP_ID }}" \
+          --groups "testers" \
+          --release-notes "Build ${{ needs.build.outputs.version }} from ${{ github.sha }}" \
+          --token "$FIREBASE_TOKEN"
+
+    - name: Notify Success
+      if: success()
+      run: echo "Firebase distribution complete for ${{ needs.build.outputs.version }}"
+
+    - name: Notify Failure
+      if: failure()
+      run: echo "Firebase distribution FAILED for ${{ needs.build.outputs.version }}"
+
+  # ── Play Store Upload (tag releases only) ──
+  play-store-upload:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download AAB
+      uses: actions/download-artifact@v4
+      with:
+        name: MedOCR-aab
+        path: ./aab
+
+    - name: Setup Fastlane
+      run: sudo gem install fastlane -NV
+
+    - name: Upload to Play Store
+      run: |
+        echo "${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}" > play-store-service-account.json
+        fastlane supply \
+          --aab ./aab/app-release.aab \
+          --track internal \
+          --json_key play-store-service-account.json \
+          --package_name "com.medicalocr.app" \
+          --release_status draft \
+          --skip_upload_metadata \
+          --skip_upload_images \
+          --skip_upload_screenshots
+        rm play-store-service-account.json
+
+    - name: Notify
+      if: success()
+      run: echo "Play Store upload complete for tag ${{ github.ref_name }}"

@@ -1,0 +1,21 @@
+# ============================================================
+# MedOCR — Docker Compose (Build + Deploy)
+# Usage: docker-compose up medocr-builder
+# ============================================================
+
+version: "3.9"
+
+services:
+  medocr-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.mobile
+    container_name: medocr-builder
+    volumes:
+      - ./dist-mobile:/app/dist-mobile
+      - ./cloud-build:/app/cloud-build
+    environment:
+      - NODE_ENV=production
+      - FIREBASE_TOKEN=${FIREBASE_TOKEN:-}
+      - FIREBASE_APP_ID=${FIREBASE_APP_ID:-}
+    command: ["./cloud-install.sh", "local"]

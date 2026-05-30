@@ -1,0 +1,51 @@
+# ============================================================
+# MedOCR Mobile Builder — Docker Build Environment
+# Usage:
+#   docker build -t medocr-builder .
+#   docker run -v $(pwd)/dist-mobile:/output medocr-builder
+# ============================================================
+
+FROM node:20-slim
+
+LABEL maintainer="DrAbdulmalek"
+LABEL description="MedOCR Mobile Build Environment — React + Capacitor + Android SDK"
+
+# ── Install system dependencies ──
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    unzip \
+    openjdk-17-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Install Android SDK ──
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
+    curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip && \
+    unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools && \
+    mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest && \
+    rm /tmp/cmdline-tools.zip
+
+# Accept licenses and install required SDK components
+RUN yes | sdkmanager --licenses > /dev/null 2>&1 && \
+    sdkmanager --install \
+    "platform-tools" \
+    "platforms;android-34" \
+    "build-tools;34.0.0"
+
+# ── Install build tools ──
+RUN npm install -g @capacitor/cli firebase-tools
+
+# ── Working directory ──
+WORKDIR /app
+
+# ── Copy build script ──
+COPY cloud-install.sh /app/cloud-install.sh
+RUN chmod +x /app/cloud-install.sh
+
+# ── Default command: build debug APK ──
+CMD ["/app/cloud-install.sh", "local"]
