@@ -1,0 +1,313 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: ingress
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /var/run/nginx.pid;
+
+    events {
+        worker_connections 2048;
+        multi_accept on;
+    }
+
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for" '
+                        'rt=$request_time';
+
+        access_log /var/log/nginx/access.log main;
+
+        sendfile        on;
+        tcp_nopush      on;
+        tcp_nodelay     on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        client_max_body_size 50M;
+        client_body_timeout 60s;
+        client_header_timeout 60s;
+        send_timeout 60s;
+
+        # Rate limiting
+        limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;
+        limit_req_zone $binary_remote_addr zone=upload_limit:10m rate=5r/m;
+        limit_conn_zone $binary_remote_addr zone=conn_limit:10m;
+
+        # Upstream backends
+        upstream backend {
+            server backend:8000;
+
+            keepalive 32;
+        }
+
+        server {
+            listen 80;
+            server_name _;
+
+            # Health check endpoint (no rate limit)
+            location /health {
+                limit_req zone=api_limit burst=20 nodelay;
+                proxy_pass http://backend;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            # Metrics endpoint (restricted)
+            location /metrics {
+                allow 10.0.0.0/8;
+                allow 172.16.0.0/12;
+                allow 192.168.0.0/16;
+                deny all;
+                proxy_pass http://backend;
+            }
+
+            # API endpoints
+            location /api/ {
+                limit_req zone=api_limit burst=50 nodelay;
+                limit_conn conn_limit 20;
+
+                proxy_pass http://backend;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_connect_timeout 10s;
+                proxy_send_timeout 300s;
+                proxy_read_timeout 300s;
+            }
+
+            # Upload endpoints (strict rate limit)
+            location ~ ^/api/(ocr|upload) {
+                limit_req zone=upload_limit burst=10 nodelay;
+                limit_conn conn_limit 5;
+
+                proxy_pass http://backend;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_connect_timeout 10s;
+                proxy_send_timeout 600s;
+                proxy_read_timeout 600s;
+                proxy_request_buffering off;
+            }
+
+            # Documentation
+            location /docs {
+                limit_req zone=api_limit burst=20 nodelay;
+                proxy_pass http://backend;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            # Default - deny all other traffic
+            location / {
+                return 404;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: ingress
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: medical-handwriting-ocr
+      app.kubernetes.io/component: ingress
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: medical-handwriting-ocr
+        app.kubernetes.io/component: ingress
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        prometheus.io/path: "/metrics"
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: ingress
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role
+                    operator: In
+                    values:
+                      - ingress
+                      - edge
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        fsGroup: 101
+      containers:
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: nginx-logs
+              mountPath: /var/log/nginx
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+        - name: nginx-logs
+          emptyDir:
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: ingress
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: ingress
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+  externalTrafficPolicy: Local
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: medical-ocr-ingress
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/rate-limit: "30"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - medical-ocr.example.com
+      secretName: medical-ocr-tls
+  rules:
+    - host: medical-ocr.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /docs
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /metrics
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000

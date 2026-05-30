@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: medical-ocr-config
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: config
+data:
+  # Application settings
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  CORS_ORIGINS: "https://medical-ocr.example.com"
+
+  # Backend / FastAPI
+  BACKEND_HOST: "0.0.0.0"
+  BACKEND_PORT: "8000"
+  WORKERS_COUNT: "4"
+
+  # Database
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "medical_ocr"
+  DB_USER: "medical_ocr_app"
+  DB_POOL_SIZE: "20"
+  DB_MAX_OVERFLOW: "10"
+
+  # Redis
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  CELERY_BROKER_URL: "redis://redis:6379/0"
+  CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+
+  # MinIO / S3-compatible storage
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_BUCKET: "medical-ocr-uploads"
+  MINIO_REGION: "us-east-1"
+  S3_ENDPOINT_URL: "http://minio:9000"
+  S3_ACCESS_KEY: ""  # populated from Secret
+  S3_SECRET_KEY: ""  # populated from Secret
+
+  # OCR / Model settings
+  OCR_MODEL_PATH: "/models/handwriting-ocr-v2"
+  OCR_BATCH_SIZE: "8"
+  OCR_CONFIDENCE_THRESHOLD: "0.85"
+  MAX_FILE_SIZE_MB: "20"
+  ALLOWED_EXTENSIONS: "png,jpg,jpeg,tiff,bmp,webp"
+
+  # Celery
+  CELERY_TASK_SOFT_TIME_LIMIT: "300"
+  CELERY_TASK_TIME_LIMIT: "360"
+  CELERY_WORKER_PREFETCH_MULTIPLIER: "1"
+  CELERY_WORKER_CONCURRENCY: "4"
+
+  # Training
+  TRAINING_EPOCHS: "100"
+  TRAINING_BATCH_SIZE: "16"
+  TRAINING_LEARNING_RATE: "0.001"
+  TRAINING_DATASET_PATH: "/data/training-dataset"
+  TRAINING_OUTPUT_PATH: "/models/output"
+  WANDB_PROJECT: "medical-handwriting-ocr"

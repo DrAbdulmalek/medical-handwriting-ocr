@@ -28,6 +28,7 @@ volumes:
   model_cache:
   redis_data:
   nginx_logs:
+  training_output:
 
 services:
   # ────────────────────────────────────────────────
@@ -275,3 +276,64 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # ────────────────────────────────────────────────
+  # Training GPU Service
+  #   - TrOCR fine-tuning with GPU acceleration
+  #   - Runs on-demand or via Celery Beat schedule
+  #   - Requires NVIDIA Container Toolkit + GPU
+  #
+  # Start manually:
+  #   docker compose -f docker-compose.full.yml run --rm training-gpu
+  # ────────────────────────────────────────────────
+  training-gpu:
+    build:
+      context: ../training
+      dockerfile: Dockerfile.training
+    container_name: ocr_training_gpu
+    restart: "no"  # One-shot training; do not auto-restart
+    profiles:
+      - gpu  # Only starts with: docker compose --profile gpu up
+    environment:
+      - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=ocr-crops
+      - MINIO_SECURE=false
+      - REDIS_URL=redis://:redis_password_123@redis:6379/0
+      - CUDA_VISIBLE_DEVICES=0
+      - TRANSFORMERS_CACHE=/app/.cache
+      - OUTPUT_DIR=/app/models/latest
+      - EPOCHS=10
+      - BATCH_SIZE=8
+      - LEARNING_RATE=5e-5
+    volumes:
+      - ../training:/app
+      - model_cache:/app/.cache
+      - training_output:/app/models
+    networks:
+      - ocr-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 16G
+          cpus: "4.0"
+    shm_size: "8g"  # Required for PyTorch dataloaders
+    command: >
+      python finetune_trocr.py
+        --output-dir /app/models/latest
+        --epochs ${EPOCHS:-10}
+        --batch-size ${BATCH_SIZE:-8}
+        --learning-rate ${LEARNING_RATE:-5e-5}
+        --use-fp16

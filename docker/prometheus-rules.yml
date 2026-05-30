@@ -1,0 +1,62 @@
+groups:
+  - name: ocr_recording_rules
+    interval: 30s
+    rules:
+      # Aggregate request rate by status-code class (2xx, 4xx, 5xx)
+      - record: ocr:request_rate:5m
+        expr: |
+          sum(rate(ocr_requests_total[5m])) by (status)
+        labels:
+          team: ocr
+
+      # Error-rate ratio (5xx / total)
+      - record: ocr:error_rate:5m
+        expr: |
+          sum(rate(ocr_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(ocr_requests_total[5m]))
+        labels:
+          team: ocr
+
+      # Per-endpoint latency quantiles
+      - record: ocr:latency_p50:5m
+        expr: |
+          histogram_quantile(0.50,
+            sum(rate(ocr_request_duration_seconds_bucket[5m])) by (le, endpoint))
+        labels:
+          team: ocr
+
+      - record: ocr:latency_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(ocr_request_duration_seconds_bucket[5m])) by (le, endpoint))
+        labels:
+          team: ocr
+
+      - record: ocr:latency_p99:5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(ocr_request_duration_seconds_bucket[5m])) by (le, endpoint))
+        labels:
+          team: ocr
+
+      # Average OCR processing time (actual inference)
+      - record: ocr:processing_time_avg:5m
+        expr: |
+          avg(rate(ocr_processing_duration_seconds_sum[5m])
+              / rate(ocr_processing_duration_seconds_count[5m]))
+        labels:
+          team: ocr
+
+      # Queue depth
+      - record: ocr:queue_depth
+        expr: ocr_queue_size
+        labels:
+          team: ocr
+
+      # Average confidence score by script class
+      - record: ocr:confidence_avg:5m
+        expr: |
+          avg(ocr_confidence_score) by (script_class)
+        labels:
+          team: ocr

@@ -1,0 +1,159 @@
+# ---------------------------------------------------------------------------
+# Docker Compose – Monitoring Stack
+#
+# USAGE:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+# This file adds Prometheus, Grafana, Alertmanager and infrastructure
+# exporters alongside the base stack defined in docker-compose.yml.
+# ---------------------------------------------------------------------------
+
+version: "3.9"
+
+services:
+  # =========================================================================
+  # Prometheus
+  # =========================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: ocr_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-rules.yml:/etc/prometheus/prometheus-rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--storage.tsdb.retention.size=4GB"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    ports:
+      - "9090:9090"
+    networks:
+      - ocr-net
+
+  # =========================================================================
+  # Alertmanager
+  # =========================================================================
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: ocr_alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://localhost:9093"
+    ports:
+      - "9093:9093"
+    networks:
+      - ocr-net
+
+  # =========================================================================
+  # Grafana
+  # =========================================================================
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: ocr_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - ocr-net
+
+  # =========================================================================
+  # PostgreSQL Exporter
+  # =========================================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: ocr_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ocr-net
+
+  # =========================================================================
+  # Redis Exporter
+  # =========================================================================
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.55.0
+    container_name: ocr_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+    networks:
+      - ocr-net
+
+  # =========================================================================
+  # Node Exporter (host-level metrics)
+  # =========================================================================
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: ocr_node_exporter
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+    volumes:
+      - /:/host:ro,rslave
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - ocr-net
+
+  # =========================================================================
+  # Redis (required by celery-exporter; added here so the exporter can start)
+  # If Redis is already defined in docker-compose.full.yml this service
+  # declaration is a no-op because Compose merges duplicate service names.
+  # =========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ocr_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ocr-net
+
+networks:
+  ocr-net:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:

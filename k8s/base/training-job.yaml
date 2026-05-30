@@ -1,0 +1,186 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: training-output-pvc
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: training
+  annotations:
+    # Only used by the training job
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: medical-ocr-training
+  namespace: medical-ocr
+  labels:
+    app.kubernetes.io/name: medical-handwriting-ocr
+    app.kubernetes.io/component: training
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  # Job completes after a full training run
+  # ttlSecondsAfterFinished: 86400  # clean up after 24h
+  backoffLimit: 2
+  activeDeadlineSeconds: 86400  # 24-hour max
+  parallelism: 1
+  completions: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: medical-handwriting-ocr
+        app.kubernetes.io/component: training
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu.present
+                    operator: In
+                    values:
+                      - "true"
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role
+                    operator: In
+                    values:
+                      - gpu
+                      - training
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: training
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for MinIO..."
+              until nc -z minio 9000; do sleep 2; done
+              echo "MinIO ready"
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+        - name: download-dataset
+          image: minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mc alias set s3 http://minio:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              mc cp --recursive s3/medical-ocr-datasets/training /data/training-dataset
+              mc cp --recursive s3/medical-ocr-datasets/validation /data/validation-dataset
+              echo "Dataset downloaded successfully"
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_PASSWORD
+          volumeMounts:
+            - name: training-data
+              mountPath: /data
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+      containers:
+        - name: training
+          image: medical-ocr-training:latest
+          command:
+            - python
+            - -m
+            - app.training.train
+            - --config
+            - /etc/training/config.yaml
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: medical-ocr-config
+            - secretRef:
+                name: backend-secret
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
+            - name: CUDA_DEVICE_ORDER
+              value: "PCI_BUS_ID"
+            - name: WANDB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: WANDB_API_KEY
+                  optional: true
+          resources:
+            requests:
+              cpu: "4"
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+              ephemeral-storage: "5Gi"
+            limits:
+              cpu: "8"
+              memory: 32Gi
+              nvidia.com/gpu: "1"
+              ephemeral-storage: "10Gi"
+          volumeMounts:
+            - name: training-data
+              mountPath: /data
+            - name: training-output
+              mountPath: /models/output
+            - name: model-cache
+              mountPath: /models/cache
+            - name: dshm
+              mountPath: /dev/shm
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: training-data
+          persistentVolumeClaim:
+            claimName: training-output-pvc
+        - name: training-output
+          persistentVolumeClaim:
+            claimName: training-output-pvc
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-pvc
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi

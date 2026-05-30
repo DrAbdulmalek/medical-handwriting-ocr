@@ -1,0 +1,68 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: 'medical-handwriting-ocr'
+
+rule_files:
+  - '/etc/prometheus/prometheus-rules.yml'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # FastAPI backend
+  # ---------------------------------------------------------------------------
+  - job_name: 'backend'
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'backend'
+
+  # ---------------------------------------------------------------------------
+  # Celery worker – exposed via a small custom exporter on port 9808
+  # ---------------------------------------------------------------------------
+  - job_name: 'celery'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['celery-exporter:9808']
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL exporter
+  # ---------------------------------------------------------------------------
+  - job_name: 'postgres'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # ---------------------------------------------------------------------------
+  # Redis exporter
+  # ---------------------------------------------------------------------------
+  - job_name: 'redis'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # ---------------------------------------------------------------------------
+  # Node exporter (host-level metrics)
+  # ---------------------------------------------------------------------------
+  - job_name: 'node'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # ---------------------------------------------------------------------------
+  # Prometheus self-monitoring
+  # ---------------------------------------------------------------------------
+  - job_name: 'prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['localhost:9090']

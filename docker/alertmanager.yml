@@ -1,0 +1,113 @@
+groups:
+  - name: ocr_alerts
+    rules:
+      # -----------------------------------------------------------------------
+      # Application-level alerts
+      # -----------------------------------------------------------------------
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(ocr_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(ocr_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate detected"
+          description: >
+            The 5xx error rate is {{ $value | humanizePercentage }} (threshold 5%)
+            for the past 5 minutes.
+
+      - alert: HighLatency
+        expr: |
+          (
+            histogram_quantile(0.99,
+              sum(rate(ocr_request_duration_seconds_bucket[10m])) by (le, endpoint)
+            )
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p99 latency on {{ $labels.endpoint }}"
+          description: >
+            p99 latency is {{ $value | humanizeDuration }} (threshold 5s) on
+            endpoint {{ $labels.endpoint }} for the past 10 minutes.
+
+      - alert: OCRQueueLength
+        expr: ocr_queue_size > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OCR processing queue is too long"
+          description: >
+            There are {{ $value }} pending OCR tasks in the queue
+            (threshold 100) for the past 10 minutes.
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections > 0.9
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL connection pool almost exhausted"
+          description: >
+            Database is using {{ $value | humanizePercentage }} of available
+            connections. Investigate for leaks or scale the pool.
+
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            node_memory_MemAvailable_bytes
+            /
+            node_memory_MemTotal_bytes
+          ) < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node memory usage above 90%"
+          description: >
+            Only {{ $value | humanizePercentage }} memory is available on
+            {{ $labels.instance }}. Current available:
+            {{ $value | humanize1024 }}B.
+
+      # -----------------------------------------------------------------------
+      # Infrastructure alerts
+      # -----------------------------------------------------------------------
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|overlay", mountpoint="/"}
+            < 10 * 1024 * 1024 * 1024
+          )
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low on {{ $labels.instance }}"
+          description: >
+            Only {{ $value | humanize1024 }}B remaining on
+            {{ $labels.instance }} (mount {{ $labels.mountpoint }}).
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis exporter cannot reach Redis"
+          description: "Redis has been down for more than 1 minute."
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL exporter cannot reach the database"
+          description: "PostgreSQL has been down for more than 1 minute."
