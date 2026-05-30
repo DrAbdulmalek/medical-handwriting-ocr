@@ -1,0 +1,452 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   App.css — Component-scoped styles for the Medical Handwriting OCR UI.
+   ════════════════════════════════════════════════════════════════════════════
+   Keep these minimal and clean. The design system can be migrated to
+   Tailwind CSS or a component library in a future iteration.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Layout ────────────────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app__main {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.app__section {
+  margin-bottom: 2rem;
+}
+
+.app__loading {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 2rem 0;
+}
+
+.app__back-btn {
+  margin-bottom: 1rem;
+}
+
+.app__footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border);
+  margin-top: auto;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.header {
+  background: var(--color-primary);
+  color: #fff;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header__inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.header__title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.header__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* ── Upload Zone ────────────────────────────────────────────────────────── */
+
+.upload-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.upload-zone:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.upload-zone--accept {
+  border-color: var(--color-success);
+  background-color: rgba(34, 197, 94, 0.05);
+}
+
+.upload-zone--reject {
+  border-color: var(--color-danger);
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.upload-zone--uploading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.upload-zone__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-zone__icon {
+  font-size: 2.5rem;
+}
+
+.upload-zone__text {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.upload-zone__hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Dashboard ──────────────────────────────────────────────────────────── */
+
+.dashboard__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dashboard__title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.dashboard__card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.dashboard__card-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.dashboard__loading,
+.dashboard__error {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.dashboard__error {
+  color: var(--color-danger);
+}
+
+.dashboard__status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard__version {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.dashboard__uptime {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1rem;
+}
+
+.dashboard__services h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.dashboard__service-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dashboard__service-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot--ok {
+  background: var(--color-success);
+}
+
+.status-dot--error {
+  background: var(--color-danger);
+}
+
+.dashboard__service-status {
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+}
+
+/* ── Status badges (health) ─────────────────────────────────────────────── */
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge--healthy {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-success);
+}
+
+.status-badge--degraded {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+}
+
+.status-badge--unhealthy {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger);
+}
+
+/* ── Confidence badges ──────────────────────────────────────────────────── */
+
+.confidence-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge--high {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-success);
+}
+
+.badge--medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+}
+
+.badge--low {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger);
+}
+
+/* ── OCR Results ────────────────────────────────────────────────────────── */
+
+.ocr-results--empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 2rem;
+}
+
+.ocr-results__heading {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.ocr-results__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Region Card ────────────────────────────────────────────────────────── */
+
+.region-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.region-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.region-card__id {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--color-text-muted);
+}
+
+.region-card__reviewed {
+  font-size: 0.75rem;
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.region-card__body {
+  flex: 1;
+}
+
+.region-card__text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.region-card__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.region-card__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.region-card__input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
+/* ── Suggestions popover ───────────────────────────────────────────────── */
+
+.region-card__suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0 0;
+  border-top: 1px solid var(--color-border);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: start;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  font-family: inherit;
+}
+
+.suggestion-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.suggestion-item__meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.region-card__no-suggestions {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0.25rem 0 0;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn--secondary {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.btn--small {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+/* ── RTL adjustments ────────────────────────────────────────────────────── */
+
+[dir="rtl"] .dashboard__service-status {
+  margin-inline-start: auto;
+}
+
+[dir="rtl"] .suggestion-item {
+  text-align: right;
+}

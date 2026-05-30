@@ -1,13 +1,18 @@
 import os
 import uuid
+import logging
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.storage import storage
 from app.ocr_engine import ocr_engine
 from app.models import OCRResult, RegionResponse
+from app.validators.upload_validator import validate_upload, sanitize_filename
 import cv2
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
@@ -19,21 +24,31 @@ async def upload_document(
     db: Session = Depends(get_db)
 ):
     """
-    Upload a document image, run OCR, store results
-    """
-    # Validate file
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(400, "Only image files allowed")
+    Upload a document image, run OCR, store results.
 
-    # Read image
+    Validates file size, magic bytes, content type, and filename before processing.
+    """
+    # Read file contents
     contents = await file.read()
+
+    # ── Upload validation (size, magic bytes, content-type, filename) ──
+    is_valid, validation_error = validate_upload(contents, file.filename or "unnamed", file.content_type or "")
+    if not is_valid:
+        logger.warning("Upload validation failed: %s", validation_error)
+        return JSONResponse(
+            status_code=400,
+            content={"error": "validation_error", "detail": validation_error},
+        )
+
+    # Sanitize filename for storage
+    safe_filename = sanitize_filename(file.filename or "unnamed")
     image = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
 
     if image is None:
-        raise HTTPException(400, "Could not read image")
+        raise HTTPException(400, "Could not decode image")
 
     # Save original temporarily
-    temp_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
+    temp_path = f"/tmp/{uuid.uuid4()}_{safe_filename}"
     cv2.imwrite(temp_path, image)
 
     try:
@@ -49,7 +64,7 @@ async def upload_document(
             VALUES (:id, :name, :path, :user)
         """), {
             "id": str(doc_id),
-            "name": file.filename,
+            "name": safe_filename,
             "path": temp_path,
             "user": user_id
         })

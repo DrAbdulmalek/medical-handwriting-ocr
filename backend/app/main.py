@@ -135,6 +135,11 @@ from app.middleware.api_key_auth import APIKeyMiddleware
 
 app.add_middleware(APIKeyMiddleware)
 
+# 6. Security headers (XSS, Clickjacking, HSTS, CSP)
+from app.middleware.security_headers import setup_security_headers
+
+setup_security_headers(app)
+
 # ─────────────────────────────────────────────────────────────
 # Global Exception Handlers
 # ─────────────────────────────────────────────────────────────
