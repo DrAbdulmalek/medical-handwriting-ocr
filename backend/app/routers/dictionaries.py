@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Header
 from typing import List, Optional
 
-from backend.app.dictionary_client import (
+from app.dictionary_client import (
     DictionaryManager, verify_dictionary_access, get_dictionary_manager
 )
 

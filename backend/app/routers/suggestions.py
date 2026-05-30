@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
 
-from backend.app.suggestion_engine import SuggestionEngine, get_suggestion_engine
+from app.suggestion_engine import SuggestionEngine, get_suggestion_engine
 
 router = APIRouter(prefix="/suggestions", tags=["suggestions"])
 

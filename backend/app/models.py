@@ -4,7 +4,7 @@ from uuid import UUID
 from datetime import datetime
 
 import sqlalchemy
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, Float, text
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, Float, Text, Date, ForeignKey, text, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 
 from app.database import Base
@@ -156,3 +156,78 @@ class AuditLog(Base):
 
     def __repr__(self) -> str:
         return f"<AuditLog id={self.id} action={self.action!r} entity={self.entity_type}/{self.entity_id}>"
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    file_name = Column(Text, nullable=False)
+    original_path = Column(Text, nullable=False)
+    page_count = Column(Integer, default=1)
+    scan_quality_score = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
+    user_id = Column(Text, nullable=True)
+    pages = relationship("Page", back_populates="document")
+
+
+class Page(Base):
+    __tablename__ = "pages"
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    document_id = Column(PG_UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    page_number = Column(Integer, nullable=False)
+    image_path = Column(Text, nullable=False)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    ocr_status = Column(Text, default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
+    document = relationship("Document", back_populates="pages")
+    text_regions = relationship("TextRegion", back_populates="page")
+
+
+class TextRegion(Base):
+    __tablename__ = "text_regions"
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    page_id = Column(PG_UUID(as_uuid=True), ForeignKey("pages.id"), nullable=False)
+    bbox = Column(JSONB, nullable=False)
+    script_class = Column(Text, nullable=True)
+    region_type = Column(Text, default="word")
+    reading_order = Column(Integer, nullable=True)
+    predicted_text = Column(Text, nullable=True)
+    confidence = Column(Float, nullable=True)
+    model_version = Column(Text, default="paddleocr-v1")
+    corrected_text = Column(Text, nullable=True)
+    correction_count = Column(Integer, default=0)
+    is_medical_term = Column(Boolean, default=False)
+    dictionary_match = Column(Boolean, nullable=True)
+    status = Column(Text, default="pending")
+    user_id = Column(Text, nullable=True)
+    reviewer_id = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
+    corrected_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    page = relationship("Page", back_populates="text_regions")
+
+
+class ModelVersion(Base):
+    __tablename__ = "model_versions"
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    version_name = Column(Text, nullable=False)
+    base_model = Column(Text, nullable=True)
+    trained_on_count = Column(Integer, default=0)
+    cer_score = Column(Float, nullable=True)
+    wer_score = Column(Float, nullable=True)
+    medical_term_accuracy = Column(Float, nullable=True)
+    training_duration = Column(Integer, nullable=True)
+    deployed_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=False)
+    notes = Column(Text, nullable=True)
+
+
+class DailyStats(Base):
+    __tablename__ = "daily_stats"
+    date = Column(Date, primary_key=True)
+    documents_processed = Column(Integer, default=0)
+    words_extracted = Column(Integer, default=0)
+    corrections_made = Column(Integer, default=0)
+    avg_confidence = Column(Float, nullable=True)
+    avg_correction_time = Column(Integer, nullable=True)

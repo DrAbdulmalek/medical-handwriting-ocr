@@ -17,7 +17,7 @@ from difflib import SequenceMatcher
 import numpy as np
 from rapidfuzz import fuzz, process
 
-from backend.app.dictionary_client import DictionaryManager, get_dictionary_manager
+from app.dictionary_client import DictionaryManager, get_dictionary_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

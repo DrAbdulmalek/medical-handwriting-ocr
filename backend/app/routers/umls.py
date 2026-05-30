@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from backend.app.umls_client import UMLSClient, get_umls_client
+from app.umls_client import UMLSClient, get_umls_client
 
 router = APIRouter(prefix="/umls", tags=["umls"])
 

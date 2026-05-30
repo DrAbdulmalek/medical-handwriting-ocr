@@ -15,10 +15,13 @@ A production-ready OCR system for Arabic medical handwriting with:
 
 import logging
 import os
+import uuid
+import traceback
 from contextlib import asynccontextmanager
 from typing import Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.database import engine, Base
@@ -133,10 +136,65 @@ from app.middleware.api_key_auth import APIKeyMiddleware
 app.add_middleware(APIKeyMiddleware)
 
 # ─────────────────────────────────────────────────────────────
+# Global Exception Handlers
+# ─────────────────────────────────────────────────────────────
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle request validation errors with structured response."""
+    errors = []
+    for error in exc.errors():
+        errors.append({
+            "field": ".".join(str(loc) for loc in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"],
+        })
+    logger.warning(f"Validation error on {request.url}: {errors}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": "validation_error",
+            "detail": errors,
+            "path": str(request.url),
+        },
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with structured response."""
+    logger.warning(f"HTTP {exc.status_code} on {request.url}: {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "path": str(request.url),
+        },
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions with logging and structured response."""
+    error_id = str(uuid.uuid4())[:8]
+    logger.error(
+        f"Unhandled error [{error_id}] on {request.url}: {str(exc)}\n{traceback.format_exc()}"
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "internal_server_error",
+            "error_id": error_id,
+            "message": "An unexpected error occurred. Please try again or contact support.",
+            "path": str(request.url),
+        },
+    )
+
+# ─────────────────────────────────────────────────────────────
 # Routers
 # ─────────────────────────────────────────────────────────────
 
 app.include_router(upload.router, tags=["upload"])
+
 app.include_router(corrections.router, tags=["corrections"])
 app.include_router(dictionaries.router, tags=["dictionaries"])
 app.include_router(suggestions.router, tags=["suggestions"])
