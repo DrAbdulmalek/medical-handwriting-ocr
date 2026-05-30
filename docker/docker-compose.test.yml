@@ -1,0 +1,183 @@
+# ─────────────────────────────────────────────────────────────────────
+# Medical Handwriting OCR — Isolated Test Environment
+# ─────────────────────────────────────────────────────────────────────
+# Lightweight Docker Compose for running tests without affecting
+# the production stack. Uses ephemeral containers and volumes.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.test.yml up -d
+#   pytest tests/ -m "not slow"
+#   docker compose -f docker/docker-compose.test.yml down -v
+#
+# Or via Makefile:
+#   make test-env-up
+#   make test-env-down
+# ─────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+networks:
+  test-network:
+    driver: bridge
+
+services:
+  # ────────────────────────────────────────────────
+  # PostgreSQL (Test Database)
+  # ────────────────────────────────────────────────
+  test-postgres:
+    image: postgres:15-alpine
+    container_name: ocr_test_postgres
+    restart: "no"
+    environment:
+      POSTGRES_USER: ocr_test_user
+      POSTGRES_PASSWORD: ocr_test_password
+      POSTGRES_DB: medical_ocr_test
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with production
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ocr_test_user -d medical_ocr_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    tmpfs:
+      - /var/lib/postgresql/data  # Ephemeral — data lost on stop
+
+  # ────────────────────────────────────────────────
+  # MinIO (Test Object Storage)
+  # ────────────────────────────────────────────────
+  test-minio:
+    image: quay.io/minio/minio:latest
+    container_name: ocr_test_minio
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: testminioadmin
+      MINIO_ROOT_PASSWORD: testminioadmin123
+    ports:
+      - "9002:9000"  # Different port to avoid conflict
+    command: server /data --console-address ":9001"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    tmpfs:
+      - /data  # Ephemeral storage
+
+  # ────────────────────────────────────────────────
+  # Redis (Test Cache & Queue)
+  # ────────────────────────────────────────────────
+  test-redis:
+    image: redis:7-alpine
+    container_name: ocr_test_redis
+    restart: "no"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"  # Different port to avoid conflict
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ────────────────────────────────────────────────
+  # ClamAV (Test Virus Scanner)
+  # ────────────────────────────────────────────────
+  test-clamav:
+    image: clamav/clamav:latest
+    container_name: ocr_test_clamav
+    restart: "no"
+    ports:
+      - "3311:3310"  # Different port to avoid conflict
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s  # ClamAV takes time to initialize
+    tmpfs:
+      - /var/lib/clamav  # Fresh DB on each start
+
+  # ────────────────────────────────────────────────
+  # Test Runner
+  # ────────────────────────────────────────────────
+  # Runs the full test suite against the test infrastructure.
+  # This is a one-shot container — it runs tests and exits.
+  #
+  # Usage:
+  #   docker compose -f docker/docker-compose.test.yml run --rm test-runner
+  # ────────────────────────────────────────────────
+  test-runner:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ocr_test_runner
+    restart: "no"
+    working_dir: /app
+    environment:
+      # Database
+      DATABASE_URL: postgresql://ocr_test_user:ocr_test_password@test-postgres:5432/medical_ocr_test
+      # MinIO
+      MINIO_ENDPOINT: test-minio:9000
+      MINIO_ACCESS_KEY: testminioadmin
+      MINIO_SECRET_KEY: testminioadmin123
+      MINIO_BUCKET: test-ocr-crops
+      MINIO_SECURE: "false"
+      # Redis
+      REDIS_URL: redis://test-redis:6379/0
+      CELERY_BROKER_URL: redis://test-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://test-redis:6379/1
+      # ClamAV
+      CLAMAV_HOST: test-clamav
+      CLAMAV_PORT: "3310"
+      CLAMAV_ENABLED: "true"
+      # Testing
+      TESTING: "true"
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      # Disable optional integrations in tests
+      ENABLE_DICTIONARIES: "false"
+      ENABLE_UMLS: "false"
+      # JWT
+      JWT_SECRET: test-jwt-secret-key-for-testing-only-32chars
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: "1"
+      # API
+      API_RATE_LIMIT: "9999"
+    volumes:
+      - ../backend:/app
+      - ../tests:/app/tests
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - test-network
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-minio:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    entrypoint: ["pytest"]
+    command:
+      - "/app/tests/"
+      - "-m"
+      - "not slow"
+      - "--tb=short"
+      - "-v"
+      - "--cov=app"
+      - "--cov-report=term-missing"
+      - "--cov-report=html:/app/htmlcov"
+      - "--cov-report=xml:/app/coverage.xml"
+      - "--cov-fail-under=60"
+      - "--timeout=120"
