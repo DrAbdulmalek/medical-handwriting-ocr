@@ -75,7 +75,7 @@ services:
   # MinIO — S3-Compatible Object Storage
   # ---------------------------------------------------------------------------
   minio:
-    image: quay.io/minio/minio:latest
+    image: minio/minio:latest
     container_name: medocr-minio
     restart: unless-stopped
     ports:

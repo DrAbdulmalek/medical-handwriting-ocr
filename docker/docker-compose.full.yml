@@ -86,7 +86,7 @@ services:
   # MinIO Object Storage
   # ────────────────────────────────────────────────
   minio:
-    image: quay.io/minio/minio:latest
+    image: minio/minio:latest
     container_name: ocr_minio
     restart: unless-stopped
     environment:

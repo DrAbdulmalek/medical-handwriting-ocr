@@ -49,7 +49,7 @@ services:
   # MinIO (Test Object Storage)
   # ────────────────────────────────────────────────
   test-minio:
-    image: quay.io/minio/minio:latest
+    image: minio/minio:latest
     container_name: ocr_test_minio
     restart: "no"
     environment:
