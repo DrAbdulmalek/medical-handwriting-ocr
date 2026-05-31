@@ -289,11 +289,12 @@ def detect_regions_multi(image_path: str, padding: int = 10) -> List[Dict]:
             if t:
                 all_texts["easyocr"] = (t, c)
 
-        # TrOCR only for low-confidence regions (expensive)
-        if preg["confidence"] < 0.80:
-            t, c = _run_trocr_crop(crop)
-            if t:
-                all_texts["trocr"] = (t, c)
+        # NOTE: TrOCR disabled — model download is ~1.5GB and only supports English
+        # Uncomment below to re-enable for low-confidence English text:
+        # if preg["confidence"] < 0.80:
+        #     t, c = _run_trocr_crop(crop)
+        #     if t:
+        #         all_texts["trocr"] = (t, c)
 
         # Ensemble voting
         best_raw, best_conf, best_engine = _select_best(all_texts)
