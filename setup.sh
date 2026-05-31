@@ -364,18 +364,25 @@ EOF
         fi
     fi
 
-    # Ask about UMLS
+    # Ask about UMLS (optional — requires NIH UMLS license)
     echo ""
-    read -p "Do you want to configure UMLS medical terminology? [y/N]: " -n 1 -r
+    echo -e "${YELLOW}⚠ UMLS integration is OPTIONAL and requires a free NIH UMLS license.${NC}"
+    echo -e "${YELLOW}  If you don't have a license, press N or Enter to skip.${NC}"
+    echo -e "${YELLOW}  Signup: https://uts.nlm.nih.gov/uts/signup-login${NC}"
+    read -p "Configure UMLS medical terminology? [y/N]: " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${CYAN}Get your key from: https://uts.nlm.nih.gov/uts/signup-login${NC}"
-        read -p "Enter UMLS API Key: " UMLS_KEY
+        echo -e "${CYAN}Enter your UMLS API Key (or press Enter to skip):${NC}"
+        read -p "UMLS API Key: " UMLS_KEY
         if [[ -n "$UMLS_KEY" ]]; then
             sed -i '' "s|# UMLS_API_KEY=.*|UMLS_API_KEY=${UMLS_KEY}|" "$ENV_FILE" 2>/dev/null ||             sed -i "s|# UMLS_API_KEY=.*|UMLS_API_KEY=${UMLS_KEY}|" "$ENV_FILE"
             sed -i '' "s|ENABLE_UMLS=false|ENABLE_UMLS=true|" "$ENV_FILE" 2>/dev/null ||             sed -i "s|ENABLE_UMLS=false|ENABLE_UMLS=true|" "$ENV_FILE"
             log_success "UMLS integration enabled"
+        else
+            echo -e "${YELLOW}  No key entered — UMLS skipped (you can configure it later in .env)${NC}"
         fi
+    else
+        echo -e "${BLUE}  UMLS skipped — you can enable it later by setting UMLS_API_KEY in .env${NC}"
     fi
 }
 

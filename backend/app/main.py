@@ -52,6 +52,7 @@ from app.routers import (
 )
 from app.routers import mobile as mobile_router
 from app.routers import auth as auth_router
+from app.routers import mobile_logs as mobile_logs_router
 
 # ─────────────────────────────────────────────────────────────
 # Logging Setup
@@ -260,6 +261,12 @@ app.include_router(clinical.router, tags=["clinical"])
 # ─────────────────────────────────────────────────────────────
 
 app.include_router(mobile_router.router, tags=["mobile"])
+
+# ─────────────────────────────────────────────────────────────
+# Mobile Logs Router (centralized device logging)
+# ─────────────────────────────────────────────────────────────
+
+app.include_router(mobile_logs_router.router, tags=["mobile-logs"])
 
 # ─────────────────────────────────────────────────────────────
 # Authentication Router (RBAC + JWT)
