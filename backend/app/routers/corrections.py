@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import get_db
 from app.models import RegionCorrection, RegionResponse
+from app.postprocessor_integration import get_postprocessor_bridge
 from uuid import UUID
 from typing import Optional
 
@@ -129,3 +130,34 @@ async def approve_correction(
     db.commit()
 
     return {"success": True, "message": "Promoted to gold standard"}
+
+
+# ─────────────────────────────────────────────────────────────
+# Postprocessor Integration Endpoints
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/postprocessor/status")
+async def postprocessor_status():
+    """Check postprocessor integration status."""
+    bridge = get_postprocessor_bridge()
+    return {
+        "available": bridge.available,
+        "error": bridge.initialization_error,
+        "stats": bridge.stats(),
+    }
+
+
+@router.post("/postprocessor/correct")
+async def postprocess_correct(
+    text: str = Body(..., embed=True),
+    phi_mask: bool = Body(False, embed=True),
+):
+    """Apply postprocessor correction to text."""
+    bridge = get_postprocessor_bridge()
+    corrected, corrections = bridge.correct(text, phi_mask=phi_mask)
+    return {
+        "original_text": text,
+        "corrected_text": corrected,
+        "corrections": corrections,
+        "postprocessor_available": bridge.available,
+    }

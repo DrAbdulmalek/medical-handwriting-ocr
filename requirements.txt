@@ -116,5 +116,8 @@ scikit-learn>=1.3.0
 tqdm>=4.65.0
 PyArabic>=0.6.1
 
+# ── Post-OCR Processing ──────────────────────────────────
+medical-ocr-postprocessor @ git+https://github.com/DrAbdulmalek/medical-ocr-postprocessor.git@main
+
 # ── Interactive UI (Gradio) ──────────────────────────────────
 gradio==5.9.1

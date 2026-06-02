@@ -477,6 +477,25 @@ copies or substantial portions of the Software.
 
 ---
 
+## Ecosystem Integration
+
+This project integrates with [medical-ocr-postprocessor](https://github.com/DrAbdulmalek/medical-ocr-postprocessor) for post-OCR text correction and PHI masking.
+
+```python
+# The postprocessor runs after OCR recognition
+from app.postprocessor_integration import get_postprocessor_bridge
+
+bridge = get_postprocessor_bridge()
+corrected_text, corrections = bridge.correct(raw_ocr_text, phi_mask=True)
+```
+
+| Feature | Source | Description |
+|---------|--------|-------------|
+| Dictionary correction | medical-ocr-postprocessor | Exact + fuzzy + phrase matching |
+| PHI masking | medical-ocr-postprocessor | 7 PHI types, 3 masking modes |
+| OCR engines | This project | PaddleOCR + TrOCR |
+| Training pipeline | This project | Continuous learning with EWC |
+
 ## Repository Status
 
 | Field | Value |
