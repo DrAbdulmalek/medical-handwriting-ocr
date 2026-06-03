@@ -12,11 +12,15 @@
 
 ---
 
+> **New here?** Start with the [⚡ Quick Start Guide (CPU-Only)](#-quick-start--cpu-only-lightweight) — get running in 5 minutes with no GPU required.
+
 ## 📋 Table of Contents
 
+- [⚡ CPU-Only Quick Start](#-quick-start--cpu-only-lightweight)
+- [Quick Start Guide](QUICKSTART.md)
 - [Features](#-features)
 - [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
+- [Quick Start (Docker/Full)](#-quick-start-1)
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Dictionary Integration](#-dictionary-integration)
@@ -25,6 +29,71 @@
 - [Deployment](#-deployment)
 - [Contributing](#-contributing)
 - [License](#-license)
+
+---
+
+## ⚡ Quick Start — CPU-Only (Lightweight)
+
+Get running in under 5 minutes with minimal dependencies. No GPU required.
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/DrAbdulmalek/medical-handwriting-ocr.git
+cd medical-handwriting-ocr
+
+# 2. Install minimal dependencies (CPU only, ~2GB)
+pip install streamlit paddleocr paddlepaddle pillow pandas numpy medical-ocr-postprocessor
+
+# 3. Run the demo
+streamlit run app.py
+
+# 4. Open in browser
+# http://localhost:8501
+```
+
+### Lightweight vs Full Installation
+
+| Feature | Lightweight (CPU) | Full (GPU) |
+|---------|:---:|:---:|
+| **PaddleOCR** | ✅ | ✅ |
+| **EasyOCR** | ❌ (add: `pip install easyocr`) | ✅ |
+| **TrOCR** | ❌ (add: `pip install transformers torch`) | ✅ |
+| **Surya OCR** | ❌ (GPU only) | ✅ |
+| **Medical Postprocessor** | ✅ | ✅ |
+| **PHI Masking** | ✅ | ✅ |
+| **RAM Required** | 2–4 GB | 16 GB+ |
+| **Setup Time** | < 5 min | ~15 min |
+| **Best For** | Quick testing, CPU servers, CI/CD | Full benchmarking, production |
+
+### CPU-Only Configuration
+
+For CPU-only environments, create a `.env` file (see [`.env.cpu-example`](.env.cpu-example)):
+
+```env
+# CPU-only lightweight config
+OCR_ENGINE=paddleocr
+OCR_DEVICE=cpu
+ENABLE_EASYOCR=false
+ENABLE_TROCR=false
+ENABLE_SURYA=false
+BATCH_SIZE=1
+MAX_IMAGE_SIZE=2048
+LOG_LEVEL=INFO
+```
+
+### Sample Dataset
+
+A small sample dataset for testing is available in the `data/samples/` directory:
+
+```bash
+# Run evaluation on sample data
+python evaluate.py --data data/samples/ --engine paddleocr --device cpu
+
+# Or use the Streamlit UI to upload your own images
+streamlit run app.py
+```
+
+> **Note:** For full production deployment with all engines, GPU acceleration, and medical postprocessing, see the [Full Installation Guide](#-quick-start-dockerfull) below.
 
 ---
 
@@ -548,3 +617,5 @@ corrected_text, corrections = bridge.correct(raw_ocr_text, phi_mask=True)
 | [medical-ocr-trainer](https://github.com/DrAbdulmalek/medical-ocr-trainer) | Data Collection | Active |
 
 **License: MIT** — Dr. Abdulmalek Tamer Al-husseini
+
+
