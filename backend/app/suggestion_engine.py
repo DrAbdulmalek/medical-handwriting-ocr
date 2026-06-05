@@ -19,6 +19,18 @@ from rapidfuzz import fuzz, process
 
 from app.dictionary_client import DictionaryManager, get_dictionary_manager
 
+# ── Optional: postprocessor integration ──────────────────────────
+try:
+    from app.postprocessor_bridge import PostprocessorBridge, get_postprocessor_bridge
+    from app.postprocessor_integration import (
+        get_postprocessor_suggestions,
+        merge_suggestions,
+        integrate_with_suggestions,
+    )
+    _POSTPROCESSOR_INTEGRATION_AVAILABLE = True
+except ImportError:
+    _POSTPROCESSOR_INTEGRATION_AVAILABLE = False
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -84,6 +96,9 @@ class SuggestionEngine:
         self.historical_db_path = Path("./data/historical_corrections.json")
         self.historical_corrections: Dict[str, List[Dict]] = defaultdict(list)
         self._load_historical()
+
+        # Optional postprocessor bridge — attached via integrate_with_suggestions()
+        self._postprocessor_bridge: Optional["PostprocessorBridge"] = None
 
         self.context_patterns = {
             'الفقارة': {'القطنية', 'الصدرية', 'العجزية', 'العنقية'},
@@ -156,6 +171,17 @@ class SuggestionEngine:
 
         if is_medical:
             all_suggestions.extend(self._abbreviation_suggestions(text))
+
+        # ── Postprocessor corrections (optional) ────────────────────
+        if _POSTPROCESSOR_INTEGRATION_AVAILABLE and self._postprocessor_bridge is not None:
+            try:
+                pp_suggestions = get_postprocessor_suggestions(
+                    text, self._postprocessor_bridge, is_medical=is_medical
+                )
+                if pp_suggestions:
+                    all_suggestions = merge_suggestions(all_suggestions, pp_suggestions)
+            except Exception as exc:
+                logger.debug(f"Postprocessor suggestions skipped for '{text}': {exc}")
 
         return self._rank_suggestions(all_suggestions, text)[:self.max_suggestions]
 

@@ -1,223 +1,192 @@
-"""Integration bridge with medical-ocr-postprocessor package.
+#!/usr/bin/env python3
+"""
+Postprocessor Integration Module
+Hooks the medical-ocr-postprocessor into the existing suggestion engine so
+that corrections from the postprocessor surface as high-confidence
+suggestions alongside the engine's own dictionary / edit-distance /
+phonetic / historical suggestions.
 
-This module provides a seamless integration between the handwriting OCR pipeline
-and the medical-ocr-postprocessor library for text correction and PHI masking.
-The postprocessor runs AFTER the OCR engine produces raw text, providing:
-  - Dictionary-based OCR correction (exact + fuzzy + phrase matching)
-  - PHI detection and masking (7 types x 3 modes)
-  - Human review candidate identification
-
-Usage:
-    from app.postprocessor_integration import PostprocessorBridge
-    
-    bridge = PostprocessorBridge()
-    corrected_text, corrections = bridge.correct(raw_ocr_text)
-    masked_text, phi_detections = bridge.mask_phi(text, mode="tag")
+Design goals
+------------
+* **Zero disruption** — if the postprocessor is not installed, the
+  suggestion engine behaves exactly as before.
+* **Merge strategy** — postprocessor corrections for known medical
+  terms receive a higher priority than generic edit-distance matches,
+  but do not completely override user-accepted historical corrections
+  with very high frequency counts.
 """
 
-from __future__ import annotations
-
 import logging
-from functools import lru_cache
-from typing import Any, Optional
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.suggestion_engine import SuggestionEngine, Suggestion
+    from app.postprocessor_bridge import PostprocessorBridge
 
 logger = logging.getLogger(__name__)
 
+# ── Priority weights ─────────────────────────────────────────────
+# These determine how postprocessor results interact with existing
+# suggestion sources.  Higher values push the postprocessor
+# suggestions above dictionary / edit-distance results but below
+# high-frequency historical corrections.
 
-class PostprocessorBridge:
-    """Bridge between handwriting OCR pipeline and medical-ocr-postprocessor.
-    
-    Wraps the postprocessor package with lazy initialization and graceful
-    fallback when the package is not installed or dictionary is unavailable.
+POSTPROCESSOR_BASE_SCORE = 0.92
+POSTPROCESSOR_MEDICAL_TERM_BONUS = 0.06  # extra for validated medical terms
+POSTPROCESSOR_SOURCE_TAG = "postprocessor"
+
+
+def integrate_with_suggestions(
+    suggestion_engine: "SuggestionEngine",
+    postprocessor_bridge: "PostprocessorBridge",
+) -> None:
     """
+    Wire the postprocessor bridge into *suggestion_engine* so that every
+    call to ``get_suggestions()`` also consults the postprocessor.
 
-    def __init__(self, dictionary_path: Optional[str] = None, config_path: Optional[str] = None):
-        self._dictionary_path = dictionary_path
-        self._config_path = config_path
-        self._corrector = None
-        self._available = False
-        self._init_error: Optional[str] = None
+    This mutates ``suggestion_engine`` by attaching a reference to the
+    bridge instance.  The engine's ``get_suggestions()`` method checks for
+    this reference and includes postprocessor corrections when present.
 
-    def _ensure_initialized(self) -> bool:
-        """Lazy-initialize the postprocessor corrector."""
-        if self._corrector is not None:
-            return True
-
-        try:
-            from medical_ocr_toolkit import MedicalOCRCorrector
-
-            kwargs = {}
-            if self._dictionary_path:
-                kwargs["dictionary_path"] = self._dictionary_path
-            if self._config_path:
-                kwargs["config_path"] = self._config_path
-
-            self._corrector = MedicalOCRCorrector(**kwargs)
-            self._available = True
-            logger.info("Postprocessor bridge initialized successfully")
-            return True
-
-        except ImportError:
-            self._init_error = "medical-ocr-postprocessor not installed"
-            logger.warning("Postprocessor not available — install with: pip install medical-ocr-postprocessor")
-            return False
-        except Exception as exc:
-            self._init_error = str(exc)
-            logger.error(f"Postprocessor initialization failed: {exc}")
-            return False
-
-    @property
-    def available(self) -> bool:
-        """Check if the postprocessor is ready to use."""
-        return self._ensure_initialized()
-
-    @property
-    def initialization_error(self) -> Optional[str]:
-        """Get the initialization error message, if any."""
-        return self._init_error
-
-    def correct(
-        self,
-        text: str,
-        phi_mask: bool = False,
-        confidence_threshold: float = 0.85,
-    ) -> tuple[str, list[dict[str, Any]]]:
-        """Correct OCR text using the postprocessor engine.
-
-        Falls back to returning the original text if the postprocessor
-        is not available.
-
-        Args:
-            text: Raw OCR text to correct
-            phi_mask: Whether to detect/mask PHI before correction
-            confidence_threshold: Minimum confidence for fuzzy corrections
-
-        Returns:
-            Tuple of (corrected_text, corrections_list)
-        """
-        if not text:
-            return "", []
-
-        if not self._ensure_initialized():
-            logger.debug("Postprocessor unavailable, returning raw text")
-            return text, []
-
-        try:
-            corrected, corrections = self._corrector.correct_text(
-                text, phi_mask=phi_mask
-            )
-            logger.info(
-                "Postprocessor correction applied",
-                original_length=len(text),
-                corrections=len(corrections),
-            )
-            return corrected, corrections
-
-        except Exception as exc:
-            logger.error(f"Postprocessor correction failed: {exc}")
-            return text, []
-
-    def mask_phi(
-        self,
-        text: str,
-        mode: str = "tag",
-    ) -> tuple[str, list[dict[str, Any]]]:
-        """Detect and mask PHI in text.
-
-        Args:
-            text: Text to scan for PHI
-            mode: One of "tag", "mask", "remove"
-
-        Returns:
-            Tuple of (masked_text, phi_detections)
-        """
-        if not text:
-            return "", []
-
-        try:
-            from medical_ocr_toolkit import mask_phi as _mask_phi
-
-            masked, detections = _mask_phi(text, mode=mode)
-            return masked, detections
-
-        except ImportError:
-            logger.warning("PHI masking unavailable")
-            return text, []
-        except Exception as exc:
-            logger.error(f"PHI masking failed: {exc}")
-            return text, []
-
-    def review_candidates(
-        self,
-        min_confidence: float = 0.7,
-    ) -> dict[str, Any]:
-        """Get corrections that need human review.
-
-        Args:
-            min_confidence: Max confidence threshold for review candidates
-
-        Returns:
-            Dict with 'candidates' list and 'stats'
-        """
-        try:
-            from medical_ocr_toolkit import review_candidates as _review
-
-            return _review(min_confidence=min_confidence)
-
-        except ImportError:
-            return {"candidates": [], "stats": {}}
-        except Exception as exc:
-            logger.error(f"Review candidates failed: {exc}")
-            return {"candidates": [], "stats": {}}
-
-    def stats(self) -> dict[str, Any]:
-        """Get postprocessor statistics."""
-        if not self._ensure_initialized():
-            return {"available": False, "error": self._init_error}
-
-        try:
-            return self._corrector.stats()
-        except Exception as exc:
-            return {"available": False, "error": str(exc)}
-
-    def close(self) -> None:
-        """Release resources."""
-        if self._corrector is not None:
-            try:
-                self._corrector.close()
-            except Exception:
-                pass
-            self._corrector = None
-        logger.info("Postprocessor bridge closed")
-
-    def __enter__(self) -> "PostprocessorBridge":
-        return self
-
-    def __exit__(self, *args: Any) -> None:
-        self.close()
-
-
-# Singleton bridge instance
-_bridge: Optional[PostprocessorBridge] = None
-
-
-def get_postprocessor_bridge(
-    dictionary_path: Optional[str] = None,
-    config_path: Optional[str] = None,
-) -> PostprocessorBridge:
-    """Get or create the global postprocessor bridge instance.
-
-    Args:
-        dictionary_path: Optional path to correction dictionary CSV
-        config_path: Optional path to config YAML
-
-    Returns:
-        PostprocessorBridge singleton instance
+    Parameters
+    ----------
+    suggestion_engine : SuggestionEngine
+        The running suggestion engine instance.
+    postprocessor_bridge : PostprocessorBridge
+        A ready-to-use :class:`PostprocessorBridge` instance.
     """
-    global _bridge
-    if _bridge is None:
-        _bridge = PostprocessorBridge(
-            dictionary_path=dictionary_path,
-            config_path=config_path,
-        )
-    return _bridge
+    suggestion_engine._postprocessor_bridge = postprocessor_bridge  # type: ignore[attr-defined]
+    logger.info(
+        "Postprocessor bridge attached to suggestion engine "
+        f"(available={postprocessor_bridge.available})"
+    )
+
+
+def get_postprocessor_suggestions(
+    text: str,
+    postprocessor_bridge: "PostprocessorBridge",
+    is_medical: bool = False,
+) -> List["Suggestion"]:
+    """
+    Query the postprocessor for corrections on *text* and return them
+    as :class:`Suggestion` objects suitable for merging.
+
+    Parameters
+    ----------
+    text : str
+        The raw OCR word or phrase to correct.
+    postprocessor_bridge : PostprocessorBridge
+        An initialised bridge instance.
+    is_medical : bool
+        When ``True``, validated medical-term corrections get a score
+        boost.
+
+    Returns
+    -------
+    List[Suggestion]
+        Zero or more suggestions sourced from the postprocessor.
+    """
+    from app.suggestion_engine import Suggestion
+
+    suggestions: List[Suggestion] = []
+
+    if not text or not text.strip():
+        return suggestions
+
+    try:
+        corrected = postprocessor_bridge.correct_text(text)
+
+        if corrected and corrected.strip() and corrected != text:
+            score = POSTPROCESSOR_BASE_SCORE
+
+            # Boost the score when the correction is a validated medical term
+            if is_medical:
+                try:
+                    validation = postprocessor_bridge._processor.validate_medical_terms(corrected)
+                    if isinstance(validation, dict) and validation.get("is_valid"):
+                        score = min(score + POSTPROCESSOR_MEDICAL_TERM_BONUS, 1.0)
+                except Exception:
+                    pass  # validation API might differ across versions
+
+            confidence = "high" if score >= 0.95 else "medium"
+            suggestions.append(
+                Suggestion(
+                    text=corrected,
+                    score=score,
+                    source=POSTPROCESSOR_SOURCE_TAG,
+                    confidence=confidence,
+                    metadata={
+                        "original_text": text,
+                        "corrected_by": "medical-ocr-postprocessor",
+                        "is_medical_term": is_medical,
+                    },
+                )
+            )
+    except Exception as exc:
+        logger.warning(f"Postprocessor correction failed for '{text}': {exc}")
+
+    return suggestions
+
+
+def merge_suggestions(
+    existing: List["Suggestion"],
+    postprocessor_suggestions: List["Suggestion"],
+) -> List["Suggestion"]:
+    """
+    Merge postprocessor suggestions into the existing suggestion list.
+
+    Merge rules
+    ------------
+    1. **Deduplicate** by lowercased text — keep the entry with the
+       higher score.
+    2. **Historical override** — if a historical correction has
+       ``frequency >= 8``, it always wins over the postprocessor.
+    3. **Postprocessor boost** — otherwise, postprocessor corrections
+       from ``source == 'postprocessor'`` get a small tie-breaking
+       advantage so they surface first when scores are equal.
+
+    Parameters
+    ----------
+    existing : List[Suggestion]
+        Suggestions generated by the standard suggestion engine.
+    postprocessor_suggestions : List[Suggestion]
+        Suggestions generated by the postprocessor bridge.
+
+    Returns
+    -------
+    List[Suggestion]
+        Merged and de-duplicated list, sorted by score descending.
+    """
+    merged: dict = {}  # key: lowercased text
+
+    # 1. Insert existing suggestions
+    for s in existing:
+        key = s.text.lower()
+        merged[key] = s
+
+    # 2. Insert / override with postprocessor suggestions
+    for ps in postprocessor_suggestions:
+        key = ps.text.lower()
+        if key in merged:
+            existing_entry = merged[key]
+
+            # Rule 2 — high-frequency historical corrections win
+            if (
+                existing_entry.source == "historical"
+                and existing_entry.metadata.get("frequency", 0) >= 8
+            ):
+                continue
+
+            # Rule 3 — postprocessor wins on ties or lower scores
+            if ps.score >= existing_entry.score:
+                merged[key] = ps
+        else:
+            merged[key] = ps
+
+    # 3. Sort descending by score
+    result = sorted(merged.values(), key=lambda s: s.score, reverse=True)
+
+    # 4. Final tie-breaking: postprocessor first on equal scores
+    result.sort(key=lambda s: (s.score, 1 if s.source == POSTPROCESSOR_SOURCE_TAG else 0), reverse=True)
+
+    return result

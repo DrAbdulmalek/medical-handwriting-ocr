@@ -59,8 +59,9 @@ requests==2.31.0
 aiofiles==23.2.1
 tqdm==4.66.1
 
-# ── Post-OCR Processing ──
-medical-ocr-postprocessor @ git+https://github.com/DrAbdulmalek/medical-ocr-postprocessor.git@main
+# ── Post-OCR Correction (optional) ──
+medical-ocr-postprocessor @ git+https://github.com/DrAbdulmalek/medical-ocr-postprocessor.git
+python-Levenshtein>=0.25.0
 
 # ── Virus Scanning (optional backends) ──
 aiohttp==3.9.1          # Async HTTP client (VirusTotal API)
