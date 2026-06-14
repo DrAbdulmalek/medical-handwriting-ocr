@@ -1,0 +1,37 @@
+[
+  {
+    "id": "demo_001",
+    "text_ar": "أموكسيسيلين 500 مجم مرتين يوميا لمدة 7 أيام",
+    "text_en": "Amoxicillin 500mg twice daily for 7 days",
+    "specialty": "prescription",
+    "difficulty": "easy"
+  },
+  {
+    "id": "demo_002",
+    "text_ar": "الضغط الانبساطي ١٢٠ والانقباضي ٨٠ ملم زئبق",
+    "text_en": "Systolic 120, Diastolic 80 mmHg",
+    "specialty": "vitals",
+    "difficulty": "easy"
+  },
+  {
+    "id": "demo_003",
+    "text_ar": "فحص الدم: الهيموغلوبين ١٤.٢ غرام/ديسيلتر، كريات الدم البيضاء ٧٥٠٠",
+    "text_en": "CBC: Hemoglobin 14.2 g/dL, WBC 7500",
+    "specialty": "lab_report",
+    "difficulty": "medium"
+  },
+  {
+    "id": "demo_004",
+    "text_ar": "تشخيص: التهاب رئوي مجتمعي المنشأ - ينصح بدخول المستشفى للمتابعة",
+    "text_en": "Diagnosis: Community-acquired pneumonia - admission recommended",
+    "specialty": "discharge",
+    "difficulty": "medium"
+  },
+  {
+    "id": "demo_005",
+    "text_ar": "Mycoplasma pneumoniae IgM إيجابي. CRP 45 mg/L. PCT 0.8 ng/mL",
+    "text_en": "Mycoplasma pneumoniae IgM positive. CRP 45 mg/L. PCT 0.8 ng/mL",
+    "specialty": "mixed_lab",
+    "difficulty": "hard"
+  }
+]
