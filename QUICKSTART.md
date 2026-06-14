@@ -1,123 +1,78 @@
-# 🚀 Quick Start Guide
+# Quick Start — البدء السريع
 
-## Option A: CPU-Only (Recommended for First Time)
+> **3 خطوات فقط** لتشغيل Medical Handwriting OCR
 
-### Prerequisites
-- Python 3.10+
-- pip (Python package manager)
-- ~2GB free RAM
-- ~3GB disk space
-
-### Steps
+## الطريقة السريعة (CPU فقط — 350MB)
 
 ```bash
-# 1. Clone
+# 1. استنساخ المستودع
 git clone https://github.com/DrAbdulmalek/medical-handwriting-ocr.git
 cd medical-handwriting-ocr
 
-# 2. Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
-
-# 3. Install minimal dependencies
-pip install --upgrade pip
+# 2. تثبيت المتطلبات
 pip install streamlit paddleocr paddlepaddle pillow pandas numpy medical-ocr-postprocessor
 
-# 4. Run
+# 3. التشغيل
 streamlit run app.py
 ```
-
-Open **http://localhost:8501** in your browser. Upload a handwritten medical document image and see the OCR results.
-
-### What You Get with CPU-Only
-- ✅ PaddleOCR engine (best for Arabic + English handwriting)
-- ✅ Medical text correction via postprocessor
-- ✅ PHI (Protected Health Information) masking
-- ✅ Confidence scores per word
-- ✅ JSON export of results
-
-### Limitations
-- No EasyOCR, TrOCR, or Surya (they need more RAM/GPU)
-- Slower processing on complex images
-- No ensemble voting (single engine only)
+> يفتح تلقائياً على http://localhost:8501
 
 ---
 
-## Option B: Full Installation (GPU)
-
-### Prerequisites
-- NVIDIA GPU with CUDA support (8GB+ VRAM recommended)
-- NVIDIA driver + CUDA 11.8+
-- Python 3.10+
-- 16GB+ system RAM
-
-### Steps
+## الطريقة الكاملة (GPU + كل المحركات — 3.1GB+)
 
 ```bash
-# 1. Clone
 git clone https://github.com/DrAbdulmalek/medical-handwriting-ocr.git
 cd medical-handwriting-ocr
 
-# 2. Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# 3. Install PyTorch (GPU)
+# تثبيت PyTorch (GPU)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 
-# 4. Install all dependencies
+# تثبيت كل المتطلبات
 pip install -r requirements.txt
 
-# 5. Run
 streamlit run app.py
 ```
 
-### What You Get with Full Installation
-- All 4+ OCR engines with ensemble voting
-- GPU-accelerated processing
-- Multi-engine confidence comparison
-- Full benchmarking support
-- Production-ready API
+---
+
+## أوضاع التشغيل / Running Modes
+
+| الوضع | الحجم | المحركات | الأمر |
+|-------|-------|----------|-------|
+| **Lite** | 350MB | PaddleOCR فقط | `pip install streamlit paddleocr paddlepaddle` |
+| **Medium** | 850MB | + EasyOCR | `pip install -e ".[medium]"` |
+| **Full** | 3.1GB+ | + TrOCR + Surya | `pip install -e ".[full]"` |
 
 ---
 
-## Troubleshooting
+## ملف التهيئة / Configuration
 
-### "ModuleNotFoundError: paddleocr"
 ```bash
-pip install paddleocr paddlepaddle
+# انسخ ملف التهيئة وعدّله حسب حاجتك
+cp .env.cpu-example .env
 ```
-
-### "CUDA out of memory"
-Reduce batch size or switch to CPU mode:
-```bash
-export OCR_DEVICE=cpu
-export OCR_BATCH_SIZE=1
-```
-
-### "Tesseract not found"
-```bash
-# Ubuntu/Debian
-sudo apt install tesseract-ocr
-
-# macOS
-brew install tesseract
-```
-
-### Slow processing on CPU
-- Use smaller images (resize to 2048px max)
-- Reduce batch size to 1
-- Use PaddleOCR only (disable other engines)
-- Close other applications to free RAM
 
 ---
 
-## Next Steps
+## مشاكل شائعة / Troubleshooting
 
-After the quick start:
-1. 📖 Read the full [README.md](README.md) for all features
-2. 🧪 Run evaluation on your own dataset
-3. 🏥 Configure medical postprocessor for your use case
-4. 📊 Compare engine accuracy with benchmarks
-5. 🚀 Deploy as API with FastAPI/Docker
+| المشكلة | الحل |
+|---------|------|
+| `ModuleNotFoundError: paddleocr` | `pip install paddleocr paddlepaddle` |
+| CUDA Out of Memory | استخدم الوضع Lite أو قلّل `BATCH_SIZE` في `.env` |
+| `tesseract not found` | `sudo apt install tesseract-ocr` (اختياري) |
+| البطء على CPU | فعّل `ENABLE_EASYOCR=false` في `.env` |
+
+---
+
+## الخطوة التالية / Next Steps
+
+- 📖 [README.md](README.md) — التوثيق الكامل
+- 🔧 [المنظومة الكاملة](https://github.com/DrAbdulmalek/omni-medical-suite) — المنصة المتكاملة
+- 📊 [المعايير](https://github.com/DrAbdulmalek/medical-ocr-benchmarks) — قياس الأداء
+- 📦 [المكتبة](https://github.com/DrAbdulmalek/medical-ocr-postprocessor) — مكتبة التصحيح
+
+---
+
+> جزء من [منظومة OCR الطبية](https://github.com/DrAbdulmalek/omni-medical-suite/blob/main/PORTFOLIO.md)
