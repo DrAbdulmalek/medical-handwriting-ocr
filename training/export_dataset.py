@@ -25,7 +25,7 @@ class DatasetExporter:
         db_url: str = "postgresql://ocr_user:ocr_password_123@localhost:5432/medical_ocr",
         minio_endpoint: str = "localhost:9000",
         minio_access: str = "minioadmin",
-        minio_secret: str = "minioadmin123",
+        minio_secret: str = os.getenv("MINIO_SECRET_KEY", "CHANGE_ME"),
         minio_bucket: str = "ocr-crops",
         output_dir: str = "./hf_dataset"
     ):

@@ -255,7 +255,7 @@ monitoring: ## Start monitoring stack (Prometheus + Grafana + exporters)
         cd docker && docker compose -f docker-compose.monitoring.yml up -d
         @echo ">>> Monitoring started."
         @echo ">>> Prometheus: http://localhost:9090"
-        @echo ">>> Grafana:    http://localhost:3000 (admin/admin)"
+        @echo ">>> Grafana:    http://localhost:3000 (admin/<YOUR_SECURE_PASSWORD>)"
 
 monitoring-down: ## Stop monitoring stack
         @echo ">>> Stopping monitoring stack..."

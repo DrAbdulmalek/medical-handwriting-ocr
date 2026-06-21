@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-change_me_in_production}
     volumes:
       - minio_data:/data
     ports:
@@ -120,7 +120,7 @@ services:
       - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-change_me_in_production}
       - MINIO_BUCKET=ocr-crops
       - MINIO_SECURE=false
       - REDIS_URL=redis://:redis_password_123@redis:6379/0
@@ -167,7 +167,7 @@ services:
       - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-change_me_in_production}
       - MINIO_BUCKET=ocr-crops
       - MINIO_SECURE=false
       - REDIS_URL=redis://:redis_password_123@redis:6379/0
@@ -220,7 +220,7 @@ services:
       - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-change_me_in_production}
       - MINIO_BUCKET=ocr-crops
       - MINIO_SECURE=false
       - REDIS_URL=redis://:redis_password_123@redis:6379/0
@@ -298,7 +298,7 @@ services:
       - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-change_me_in_production}
       - MINIO_BUCKET=ocr-crops
       - MINIO_SECURE=false
       - REDIS_URL=redis://:redis_password_123@redis:6379/0

@@ -409,7 +409,7 @@ kubectl rollout status deployment/minio -n medical-ocr
 kubectl port-forward -n medical-ocr svc/minio 9000:9000 &
 MC_PID=$!
 
-mc alias set k8s-minio http://localhost:9000 minioadmin minioadmin123
+mc alias set k8s-minio http://localhost:9000 minioadmin ${MINIO_SECRET_KEY}
 mc mb k8s-minio/ocr-crops --ignore-existing
 mc mirror backups/YYYY-MM-DD_HH-MM-SS/minio/ k8s-minio/ocr-crops/
 
@@ -608,7 +608,7 @@ MINIO_BUCKET=ocr-crops
 MINIO_HOST=localhost
 MINIO_API_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin123
+MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 
 # Paths
 BACKUP_DIR=./backups

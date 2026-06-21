@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # ── MinIO Object Storage ──────────────────────────────────
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin123"
+    MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "CHANGE_ME")
     MINIO_BUCKET: str = "ocr-crops"
     MINIO_SECURE: bool = False
 

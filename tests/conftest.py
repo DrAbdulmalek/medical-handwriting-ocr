@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 os.environ.setdefault("DATABASE_URL", "postgresql://ocr_user:ocr_password_123@localhost:5432/medical_ocr_test")
 os.environ.setdefault("MINIO_ENDPOINT", "localhost:9000")
 os.environ.setdefault("MINIO_ACCESS_KEY", "minioadmin")
-os.environ.setdefault("MINIO_SECRET_KEY", "minioadmin123")
+os.environ.setdefault("MINIO_SECRET_KEY", "test_secret_key")
 os.environ.setdefault("MINIO_BUCKET", "test-ocr-crops")
 os.environ.setdefault("MINIO_SECURE", "false")
 

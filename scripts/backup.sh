@@ -225,7 +225,7 @@ backup_minio() {
         mc alias set "${MINIO_ALIAS}" \
             "http://${MINIO_HOST:-localhost}:${MINIO_API_PORT:-9000}" \
             "${MINIO_ACCESS_KEY:-minioadmin}" \
-            "${MINIO_SECRET_KEY:-minioadmin123}" \
+            "${MINIO_SECRET_KEY:-change_me}" \
             &>>"${LOG_FILE}" || {
             log_error "Could not configure MinIO alias '${MINIO_ALIAS}'. Skipping MinIO backup."
             mark_failure "minio"

@@ -1,3 +1,8 @@
+> **⚠️ هذا المستودع مؤرشف. استخدم [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) بدلاً منه.**
+> **⚠️ ARCHIVED: This repository is archived. Use [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) instead.**
+
+---
+
 # 🩺 Medical Handwriting OCR
 
 [![CI/CD](https://github.com/DrAbdulmalek/medical-handwriting-ocr/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/DrAbdulmalek/medical-handwriting-ocr/actions)
@@ -253,7 +258,7 @@ DATABASE_URL=postgresql://ocr_user:ocr_password_123@localhost:5432/medical_ocr
 # MinIO
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin123
+MINIO_SECRET_KEY=<YOUR_SECRET_KEY>
 
 # Optional: Arabic Dictionaries (GitHub Token)
 DICTIONARY_REPO_TOKEN=ghp_your_token_here
@@ -459,7 +464,7 @@ terraform apply -var-file="production.tfvars"
 
 ### Grafana Dashboards
 
-Access at `http://localhost:3000` (admin/admin123)
+Access at `http://localhost:3000` (admin/<YOUR_SECURE_PASSWORD>)
 
 Pre-configured dashboards:
 - **OCR Performance** — CER/WER trends, processing time

@@ -83,7 +83,7 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change_me_in_production}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -139,7 +139,7 @@ services:
       # MinIO
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change_me_in_production}
       MINIO_BUCKET: ${MINIO_BUCKET:-ocr-crops}
       MINIO_SECURE: "false"
       # OCR Engine
@@ -207,7 +207,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change_me_in_production}
       MINIO_BUCKET: ${MINIO_BUCKET:-ocr-crops}
       MINIO_SECURE: "false"
       ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -271,7 +271,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change_me_in_production}
       MINIO_BUCKET: ${MINIO_BUCKET:-ocr-crops}
       MINIO_SECURE: "false"
       PADDLEOCR_LANG: ${PADDLEOCR_LANG:-ar,en}

@@ -344,7 +344,7 @@ FRONTEND_PORT=80
 # Monitoring Ports
 PROMETHEUS_PORT=9090
 GRAFANA_PORT=3000
-GRAFANA_PASSWORD=admin123
+GRAFANA_PASSWORD=<YOUR_SECURE_PASSWORD>
 EOF
 
     log_success "Environment file created: .env"
@@ -504,7 +504,7 @@ show_final_instructions() {
     echo -e "  ${CYAN}Web Application:${NC}     http://localhost:8000"
     echo -e "  ${CYAN}API Documentation:${NC}   http://localhost:8000/docs"
     echo -e "  ${CYAN}MinIO Console:${NC}       http://localhost:9001"
-    echo -e "  ${CYAN}Grafana Dashboard:${NC}   http://localhost:3000 (admin/admin123)"
+    echo -e "  ${CYAN}Grafana Dashboard:${NC}   http://localhost:3000 (admin/<YOUR_SECURE_PASSWORD>)"
     echo -e "  ${CYAN}Prometheus:${NC}          http://localhost:9090"
     echo ""
 

@@ -26,7 +26,7 @@ services:
     container_name: ocr_minio
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-change_me_in_production}
     volumes:
       - minio_data:/data
     ports:
@@ -47,7 +47,7 @@ services:
       - DATABASE_URL=postgresql://ocr_user:ocr_password_123@postgres:5432/medical_ocr
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-change_me_in_production}
       - MINIO_BUCKET=ocr-crops
     ports:
       - "8000:8000"
