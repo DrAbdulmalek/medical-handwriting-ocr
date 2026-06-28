@@ -1,3 +1,22 @@
+<!-- ARCHIVE BANNER - AUTO-GENERATED -->
+<div align="center">
+
+# ⚠️ This repository has been archived
+
+**Medical OCR engine merged into omni-medical-suite/backend/ocr/**
+
+This project has been consolidated into the unified **[omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite)** monorepo.
+
+All active development, bug fixes, and new features continue there.
+
+</div>
+
+---
+
+> **Archived on: 2026-06-28** | **Active project:** [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite)
+
+---
+
 > **⚠️ هذا المستودع مؤرشف. استخدم [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) بدلاً منه.**
 > **⚠️ ARCHIVED: This repository is archived. Use [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) instead.**
 
