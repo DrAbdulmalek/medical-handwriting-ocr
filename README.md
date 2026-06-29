@@ -1,158 +1,104 @@
 ---
 title: Medical Handwriting OCR
-emoji: "🏥"
-colorFrom: teal
+emoji: 🏥
+colorFrom: blue
 colorTo: green
 sdk: docker
 app_port: 7860
-pinned: true
-license: mit
-tags:
-  - ocr
-  - medical
-  - handwriting
-  - arabic
-  - english
-  - paddleocr
-  - gradio
-models:
-  - DrAbdulmalek/medical-handwriting-ocr-v1
-datasets:
-  - DrAbdulmalek/medical-ocr-ground-truth
+pinned: false
 ---
 
-<div align="center">
+> **Role**: Production Deployment & Live Demo — This HF Space is the public-facing deployment of the [OmniMedical OCR Engine](https://github.com/DrAbdulmalek/omni-medical-suite). It provides a ready-to-use web interface for medical document OCR with multi-engine support and real-time correction.
 
-# Medical Handwriting OCR
+# 🏥 Medical Handwriting OCR — Production Deployment
 
-**Adaptive OCR system for medical handwritten notes with continuous learning, Arabic dictionary integration, and UMLS/SNOMED validation.**
+### التصحيح الطبي — PaddleOCR + Tesseract + EasyOCR + TrOCR
 
-| Feature | Status |
-|---------|--------|
-| Arabic handwritten prescriptions | Supported |
-| English medical notes | Supported |
-| Mixed Arabic-English documents | Supported |
-| Medical term dictionary (270+ terms) | Integrated |
-| UMLS/SNOMED validation | Available |
-| Batch processing | Supported |
-| API access | REST + Gradio |
-
-[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/raw/main/open-in-hf-spaces-sm.svg)](https://huggingface.co/spaces/DrAbdulmalek/medical-handwriting-ocr)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
-
-</div>
+Upload medical documents → multi-engine OCR ensemble → edit corrections → save for future improvements.
 
 ---
 
-## Model Description
+## What This Is
 
-Medical Handwriting OCR is an end-to-end system designed to recognize and digitize handwritten medical documents including prescriptions, clinical notes, lab results, and referral letters. The system supports **Arabic** and **English** languages with special handling for **mixed-language documents** that are common in medical practice across the Middle East and North Africa region.
+This HF Space is the **production deployment** of the OmniMedical OCR system. It runs the full OCR pipeline as a live, publicly accessible web application — not a prototype, not a research notebook, and not a limited demo. It is the place where end users interact with the system, where corrections are collected for model improvement, and where the multi-engine ensemble is exercised in production.
 
-The core engine is built on **PaddleOCR** with custom post-processing layers including:
+**Ecosystem links**: [Platform (GitHub)](https://github.com/DrAbdulmalek/omni-medical-suite) · [Trainer](https://huggingface.co/spaces/DrAbdulmalek/medical-ocr-trainer) · [Dashboard](https://huggingface.co/spaces/DrAbdulmalek/mission-control) · [Preprocessing](https://github.com/DrAbdulmalek/scanner-fixer)
 
-- **Arabic Medical Dictionary**: 270+ medical term correction rules covering diagnoses, medications, procedures, and anatomical terms
-- **FHIR R4 Mapping**: Automatic transformation of extracted data into FHIR (Fast Healthcare Interoperability Resources) standard format
-- **Clinical Validation**: Cross-referencing extracted terms against UMLS and SNOMED CT medical ontologies
-- **Adaptive Learning**: Continuous improvement through user feedback integration
+## What This Is NOT
 
-## Intended Uses & Limitations
+| This is NOT… | It lives in… |
+|---|---|
+| The backend source code | [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) (GitHub) |
+| The training/ingestion pipeline | [medical-ocr-training-hub](https://huggingface.co/spaces/DrAbdulmalek/medical-ocr-training-hub) (HF) |
+| A secondary or legacy demo | [handwriting-ocr](https://huggingface.co/spaces/DrAbdulmalek/handwriting-ocr) (HF, legacy — has redirect banner) |
+| A specialized training tool | [medical-ocr-trainer](https://huggingface.co/spaces/DrAbdulmalek/medical-ocr-trainer) (HF) |
+| An operational dashboard | [mission-control](https://huggingface.co/spaces/DrAbdulmalek/mission-control) (HF) |
 
-### Intended Use
-- Digitizing handwritten medical prescriptions for electronic health records
-- Processing historical clinical notes for research databases
-- Assisting healthcare providers in converting handwritten notes to structured data
-- Supporting medical billing and coding workflows
+---
 
-### Limitations
-- Not a substitute for professional medical transcription review
-- Accuracy may vary with handwriting style, document quality, and scan resolution
-- Medical decisions should not be made solely based on OCR output without clinical verification
-- Best performance on printed forms with handwritten fields; pure freehand notes may have lower accuracy
+## Architecture
 
-## How to Use
+### Where This Space Fits
 
-### Gradio Demo (This Space)
-Upload a handwritten medical document image and select processing options. The system will extract text, apply medical dictionary corrections, and display structured results.
-
-### API Usage
-
-```python
-import requests
-
-# Upload and process
-with open("prescription.jpg", "rb") as f:
-    response = requests.post(
-        "https://drabdulmalek-medical-handwriting-ocr.hf.space/api/predict",
-        files={"file": f},
-        data={"language": "arabic", "apply_corrections": "true"}
-    )
-    result = response.json()
-    print(result["text"])
+```
+┌─────────────────────────────────────────────────────┐
+│              OmniMedical Ecosystem                 │
+├─────────────────────────────────────────────────────┤
+│  [GitHub]            [HF Spaces]                   │
+│  omni-medical-suite ──► medical-handwriting-ocr ◄── YOU ARE HERE
+│  (backend code)       (THIS — Live Deployment)      │
+│                       medical-ocr-trainer (training)│
+│  scanner-fixer        mission-control (dashboard)   │
+│  (preprocessing)      handwriting-ocr (legacy)      │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Local Installation
+### Internal Dependencies
 
-```bash
-git clone https://github.com/DrAbdulmalek/medical-handwriting-ocr.git
-cd medical-handwriting-ocr
-pip install -r requirements.txt
-python app.py
+| Component | Repo | Access |
+|---|---|---|
+| 🔒 **Medical Dictionaries** | [DrAbdulmalek/arabic-dictionaries-collection](https://github.com/DrAbdulmalek/arabic-dictionaries-collection) | Private — requires `GITHUB_TOKEN` |
+| 🔒 **Work Data & Training** | [DrAbdulmalek/medical-ocr-work-data](https://github.com/DrAbdulmalek/medical-ocr-work-data) | Private — requires `GITHUB_TOKEN` |
+| 🌐 **This Project (HF Space)** | [DrAbdulmalek/medical-handwriting-ocr](https://github.com/DrAbdulmalek/medical-handwriting-ocr) | Public |
+
+### Data Flow
+
+```
+┌─────────────────────┐
+│   HF Space (Public) │
+│  medical-handwriting │
+│       -ocr           │
+└─────┬───────┬───────┘
+      │       │
+      ▼       ▼
+┌──────────┐  ┌──────────────┐
+│ 🔒 Dict  │  │ 🔒 Work Data │
+│  Repo    │  │    Repo      │
+│(reads)   │  │ (reads+writes)│
+└──────────┘  └──────────────┘
 ```
 
-## Training Data
+- **Dictionary Repo**: Medical terms loaded at startup for auto-correction
+- **Work Data Repo**: Corrections, training exports, and work logs saved after each session
 
-The model was fine-tuned on a curated dataset of **medical handwritten documents** from multiple healthcare facilities. The dataset includes:
+### Accessing Private Repos
 
-| Category | Count | Languages |
-|----------|-------|-----------|
-| Prescriptions | 500+ | Arabic, English |
-| Clinical Notes | 300+ | Arabic, English, Mixed |
-| Lab Results | 200+ | English, Arabic |
-| Referral Letters | 150+ | Arabic, English |
+The private repositories contain sensitive training data and medical dictionaries. To access them:
 
-**Dataset:** [medical-ocr-ground-truth](https://huggingface.co/datasets/DrAbdulmalek/medical-ocr-ground-truth)
+1. Request access from the repository owner
+2. Set `GITHUB_TOKEN` in HF Space secrets (Settings → Repository secrets)
+3. The application will automatically sync corrections and training data
 
-## Evaluation Results
+---
 
-Benchmarks measured on the held-out test set (see [medical-ocr-benchmarks](https://github.com/DrAbdulmalek/medical-ocr-benchmarks)):
+## Features
 
-| Metric | Arabic | English | Mixed |
-|--------|--------|---------|-------|
-| **CER** (Character Error Rate) | 4.2% | 3.1% | 5.8% |
-| **WER** (Word Error Rate) | 8.7% | 6.3% | 11.2% |
-| **Medical Term Accuracy** | 92.1% | 95.4% | 88.6% |
-| **Latency** (per page) | 1.2s | 0.9s | 1.5s |
-
-## Technical Details
-
-- **Base Engine**: PaddleOCR (PP-OCRv4)
-- **Post-Processing**: Custom medical dictionary + regex patterns
-- **Backend**: FastAPI + SQLAlchemy
-- **Frontend**: Gradio + React
-- **Deployment**: Docker + Kubernetes (HPA 2-10 pods)
-- **Standards**: FHIR R4, HL7 v2.5, DICOM
-
-## Ethical Considerations
-
-This system processes medical documents which may contain protected health information (PHI). Users must ensure compliance with applicable data protection regulations (HIPAA, GDPR, or local equivalents) when using this system. Documents should be anonymized before processing when possible, and results should be stored and transmitted securely.
-
-## Citing
-
-```bibtex
-@software{medical_handwriting_ocr,
-  author = {DrAbdulmalek},
-  title = {Medical Handwriting OCR: Adaptive OCR for Medical Documents},
-  year = {2025},
-  url = {https://huggingface.co/spaces/DrAbdulmalek/medical-handwriting-ocr},
-  license = {MIT}
-}
-```
-
-## Links
-
-- **Source Code**: [github.com/DrAbdulmalek/medical-handwriting-ocr](https://github.com/DrAbdulmalek/medical-handwriting-ocr)
-- **Unified Suite**: [github.com/DrAbdulmalek/omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite)
-- **Benchmarks**: [github.com/DrAbdulmalek/medical-ocr-benchmarks](https://github.com/DrAbdulmalek/medical-ocr-benchmarks)
-- **Ground Truth Data**: [huggingface.co/datasets/DrAbdulmalek/medical-ocr-ground-truth](https://huggingface.co/datasets/DrAbdulmalek/medical-ocr-ground-truth)
-- **Training Hub**: [github.com/DrAbdulmalek/medical-ocr-training-hub](https://github.com/DrAbdulmalek/medical-ocr-training-hub)
+- **Multi-Engine OCR**: PaddleOCR, Tesseract, EasyOCR, TrOCR running as an ensemble
+- **Batch Processing**: Upload and process multiple medical documents in one session
+- **Confidence Thresholds**: Adjustable per-engine confidence filtering
+- **Real-Time Correction Editing**: Edit OCR output directly in the interface
+- **Dictionary Auto-Correction**: Fuzzy matching against 900K+ medical terms
+- **Noise Filtering**: Automatically removes garbage results (dots, symbols)
+- **Training Export**: JSONL export ready for model fine-tuning
+- **GitHub Sync**: Corrections auto-sync to private work-data repo
+- **Arabic RTL**: Full Arabic text support with reshaping
