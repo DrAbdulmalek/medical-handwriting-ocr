@@ -1,3 +1,6 @@
+> ⚠️ **مستودع مُوَحَّد**: التطوير النشط انتقل إلى [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite).
+> البنية التحتية المحذوفة محفوظة في [future-dev-ideas](https://github.com/DrAbdulmalek/future-dev-ideas).
+
 ---
 title: Medical Handwriting OCR
 emoji: 🏥
