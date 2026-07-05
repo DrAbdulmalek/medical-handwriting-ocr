@@ -1,19 +1,21 @@
-> ⚠️ **مستودع مُوَحَّد**: التطوير النشط انتقل إلى [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite).
-> البنية التحتية المحذوفة محفوظة في [future-dev-ideas](https://github.com/DrAbdulmalek/future-dev-ideas).
+> # ⛔ هذا المستودع متوقف عن التطوير
+>
+> هذا Space لا يزال يعمل حالياً، لكن **لن يتلقى تحديثات جديدة**.
+> النسخة النشطة والمحدّثة هي: **[medical-ocr-demo](https://huggingface.co/spaces/DrAbdulmalek/medical-ocr-demo)** (المرتبط بـ [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite)).
+>
+> الملفات هنا محفوظة للأرشفة فقط.
 
 ---
 title: Medical Handwriting OCR
 emoji: 🏥
-colorFrom: blue
-colorTo: green
+colorFrom: red
+colorTo: orange
 sdk: docker
 app_port: 7860
 pinned: false
 ---
 
-> **Role**: Production Deployment & Live Demo — This HF Space is the public-facing deployment of the [OmniMedical OCR Engine](https://github.com/DrAbdulmalek/omni-medical-suite). It provides a ready-to-use web interface for medical document OCR with multi-engine support and real-time correction.
-
-# 🏥 Medical Handwriting OCR — Production Deployment
+# 🏥 Medical Handwriting OCR — أرشيف (متوقف)
 
 ### التصحيح الطبي — PaddleOCR + Tesseract + EasyOCR + TrOCR
 
