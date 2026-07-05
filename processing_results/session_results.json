@@ -1,0 +1,259 @@
+{
+  "metadata": {
+    "timestamp": "2026-06-14 00:48:00",
+    "date": "2026-06-14",
+    "time": "00:48:00",
+    "timezone": "Asia/Damascus (UTC+3)",
+    "session_type": "OCR Correction Pipeline Development",
+    "repository": "DrAbdulmalek/medical-handwriting-ocr",
+    "platform": "HuggingFace Spaces"
+  },
+  "pipeline_architecture": {
+    "description": "Multi-Engine OCR with 5-Stage Correction Pipeline",
+    "ocr_engines": {
+      "primary": "PaddleOCR (Arabic + English) - ~5-10s",
+      "secondary": "Tesseract OCR (Arabic + English) - ~10-15s",
+      "tertiary": "EasyOCR (Arabic + English) - ~20-30s",
+      "optional": "TrOCR (disabled by default, ~60s load)"
+    },
+    "correction_pipeline": [
+      {
+        "stage": 1,
+        "name": "Orthopedic Terms (FAST)",
+        "description": "Exact/fuzzy matching against 100+ orthopedic terms with variant mappings including presentation forms",
+        "file": "app/medical_terms_dict.json",
+        "handler": "MedicalContextProcessor.process_word() + process_phrase()",
+        "status": "ACTIVE - runs FIRST, no gate"
+      },
+      {
+        "stage": 2,
+        "name": "User Dictionary (LEARNED)",
+        "description": "Learned from manual corrections, highest trust, cloud sync via HF Dataset",
+        "file": "app/advanced_corrector.py (UserLearningEngine)",
+        "handler": "UserLearningEngine.get_correction()",
+        "status": "ACTIVE"
+      },
+      {
+        "stage": 3,
+        "name": "Context Corrector (FRAGMENTS)",
+        "description": "Smart fragment merging + 760K medical dict fuzzy matching + presentation form normalization",
+        "file": "app/context_corrector.py",
+        "handler": "ContextCorrector.correct_text()",
+        "status": "ACTIVE - includes detect_and_merge_fragments()"
+      },
+      {
+        "stage": 4,
+        "name": "Advanced Pipeline (MEDICAL+NLP)",
+        "description": "Drug/diagnosis/dosage detection + NLP SymSpell spell-check",
+        "file": "app/advanced_corrector.py",
+        "handler": "AdvancedCorrectionPipeline.process_word()",
+        "status": "ACTIVE - NLP disabled by default (ENABLE_NLP_CORRECTION=0)"
+      },
+      {
+        "stage": 5,
+        "name": "Large Dictionary (FALLBACK)",
+        "description": "Broadest coverage from 760K+ medical terms via GitHub sync",
+        "file": "app/ocr_engine.py (_dictionary_correct)",
+        "handler": "_dictionary_correct()",
+        "status": "ACTIVE - requires GITHUB_TOKEN secret"
+      }
+    ]
+  },
+  "latest_processing_stats": {
+    "total_regions_detected": 58,
+    "noise_filtered": 2,
+    "valid_regions_processed": 56,
+    "context_corrected": 50,
+    "dict_corrected": 6,
+    "medical_corrected": 0,
+    "nlp_corrected": 0,
+    "user_dict_corrected": 0,
+    "processing_time_seconds": 270.3,
+    "engines_used": "paddle/tesseract/easyocr"
+  },
+  "known_issues": [
+    {
+      "id": "ISSUE-001",
+      "title": "PaddleOCR Arabic Presentation Forms",
+      "description": "PaddleOCR outputs Arabic in Unicode Presentation Forms (U+FB50-FDFF, U+FE70-FEFF) instead of standard Arabic (U+0600-06FF)",
+      "example": "Raw: ﻼﻤﻌﺗﻮﻳﺎﺗ  Expected: جدول المحتويات",
+      "impact": "Text appears as disconnected letters, breaks fuzzy matching and dictionary lookup",
+      "current_mitigation": "normalize_presentation_forms() via NFKC + explicit ligature mapping",
+      "status": "PARTIALLY RESOLVED"
+    },
+    {
+      "id": "ISSUE-002a",
+      "title": "fix_arabic_text() applied before matching",
+      "description": "fix_arabic_text() (arabic_reshaper + BiDi get_display) was applied BEFORE matching, converting text to visual order + re-introducing presentation forms.",
+      "fix_applied": "Introduced best_logical for ALL correction stages, fix_arabic_text() only at end for display.",
+      "fix_commit": "4c88a5c",
+      "fix_date": "2026-06-13 21:45:00",
+      "status": "FIXED"
+    },
+    {
+      "id": "ISSUE-002b",
+      "title": "Arabic text in visual/LTR order - ROOT CAUSE of medical_corrected=0",
+      "description": "NFKC normalization converts character FORMS (FB50-FEFF to 0600-06FF) but does NOT fix character ORDER. Some OCR engines output Arabic in visual (left-to-right) order. Example: ﺕﺎﻮﺘﺤﻤﻟﺍ → NFKC → 'تاوتحملا' (visual) → needs reversal → 'المحتويات' (logical). Without this fix, no dictionary match is possible.",
+      "fix_applied": "Added _try_fix_visual_order() that tries BOTH orientations against 514 orthopedic variants. Only flips on strong evidence: (Rule 1) reversed has substring match but forward has none, (Rule 2) reversed fuzzy > 0.85 AND > forward+0.20. Falls back to existing _detect_and_fix_reversal() heuristics. Tested on 11 real cases - ALL PASS, zero false positives.",
+      "fix_commit": "753eb76",
+      "fix_date": "2026-06-14 00:45:00",
+      "status": "FIXED - awaiting HF Space rebuild to verify"
+    },
+    {
+      "id": "ISSUE-003",
+      "title": "EasyOCR RTL text reversal",
+      "description": "EasyOCR sometimes returns Arabic text in reversed (LTR) visual order",
+      "current_mitigation": "_detect_and_fix_reversal() with 3 heuristics: (1) LTR-start + mostly Arabic, (2) Arabic-start + ASCII-end non-numeric, (3) mixed text with Latin word before Arabic",
+      "status": "PARTIALLY RESOLVED - heuristic-based"
+    },
+    {
+      "id": "ISSUE-004",
+      "title": "Fragmented Arabic words from PaddleOCR",
+      "description": "Connected Arabic words are split into individual letter fragments",
+      "example": "ﺵﺎﺸﻤﻟﺍ ﺕﺎﺬﻴﺋﺍ  should be  أذيات المشاش",
+      "current_mitigation": "detect_and_merge_fragments() tries concatenating short fragments and fuzzy-matching",
+      "status": "PARTIALLY RESOLVED - needs more variant patterns"
+    }
+  ],
+  "code_changes_summary": {
+    "app/ocr_engine.py": {
+      "purpose": "Main OCR pipeline orchestration",
+      "key_changes": [
+        "Pipeline reordered: orthopedic FIRST, user dict, context, advanced, dictionary",
+        "Multi-word phrase detection via process_phrase() for compound orthopedic terms",
+        "Improved RTL reversal detection with 3 heuristics using normalize_presentation_forms()",
+        "normalize_presentation_forms() applied to paddle_text at detection time (line 757)",
+        "from_advanced flag for correction source attribution"
+      ]
+    },
+    "app/advanced_corrector.py": {
+      "purpose": "Advanced 3-stage correction pipeline",
+      "key_changes": [
+        "MedicalContextProcessor accepts terms_path param, loads orthopedic_terms from JSON",
+        "Built term_variants reverse lookup: normalized variant -> correct term",
+        "process_word() priority: orthopedic exact -> orthopedic fuzzy (>0.7) -> dosage regex -> drug fuzzy -> diagnosis fuzzy",
+        "process_phrase() combines 2-4 adjacent words for multi-word orthopedic term detection",
+        "_build_symspell_dict() also loads orthopedic terms from JSON file"
+      ]
+    },
+    "app/context_corrector.py": {
+      "purpose": "Context-aware post-OCR correction with fragment merging",
+      "key_changes": [
+        "ArabicTextNormalizer: maps presentation forms, ligatures, strips tashkeel",
+        "merge_fragmented_words(): 3 strategies - binary merge, ternary merge, merge with previous short word",
+        "detect_and_merge_fragments(): high-level entry - tries all-words concatenation, space-join, then word-by-word",
+        "correct_text() pipeline: normalize -> rules -> whole-line fuzzy -> fragments -> per-word fuzzy",
+        "_ensure_corrector() loads orthopedic terms into ContextCorrector dictionary"
+      ]
+    },
+    "app/medical_terms_dict.json": {
+      "purpose": "Specialized orthopedic medical terms dictionary",
+      "key_changes": [
+        "100+ orthopedic terms with variant mappings",
+        "Includes presentation form variants (e.g. ﻝﻭﺪﺟ for جدول)",
+        "Includes English equivalents for bilingual matching",
+        "Structure: {orthopedic_terms: {correct_term: [variants...]}, common_patterns: {...}}"
+      ]
+    },
+    "app/sync_user_dict.py": {
+      "purpose": "Cloud sync for user dictionary via private HF Dataset",
+      "key_changes": [
+        "UserDictSync class with upload() and download() methods",
+        "Non-fatal: works without HF_TOKEN, logs warning instead of crashing"
+      ]
+    },
+    "app/gradio_app.py": {
+      "purpose": "Gradio web interface",
+      "key_changes": [
+        "3 checkboxes for pipeline control: enable_learning, enable_medical_ctx, enable_nlp",
+        "perform_ocr() signature updated with pipeline toggle params",
+        "import os fix for NameError"
+      ]
+    }
+  },
+  "git_commit_history": [
+    {
+      "hash": "753eb76",
+      "message": "fix: detect and fix visual→logical Arabic text order (ROOT CAUSE of medical_corrected=0)"
+    },
+    {
+      "hash": "c348823",
+      "message": "debug: add ortho-diagnostic logging"
+    },
+    {
+      "hash": "4c88a5c",
+      "message": "fix: separate logical text from display text — fix medical_corrected=0"
+    },
+    {
+      "hash": "864aadf",
+      "message": "fix: reorder pipeline - orthopedic FIRST, then context, then dict"
+    },
+    {
+      "hash": "ac021ce",
+      "message": "feat: orthopedic terms dictionary + smart fragment merging + RTL fix"
+    },
+    {
+      "hash": "d966301",
+      "message": "fix: move import os to top of context_corrector.py"
+    },
+    {
+      "hash": "0e9e821",
+      "message": "feat: add cloud sync for user dictionary via HF Dataset"
+    },
+    {
+      "hash": "6bb21f8",
+      "message": "feat: add AdvancedCorrectionPipeline (user learning + medical context + NLP)"
+    }
+  ],
+  "pending_improvements": [
+    {
+      "priority": "HIGH",
+      "task": "FIXED (2 commits): (1) 4c88a5c - separated best_logical from best_display, (2) 753eb76 - added _try_fix_visual_order() to detect and fix visual→logical Arabic text order",
+      "details": "Two-part fix: Part 1 separated logical text for matching. Part 2 (ROOT CAUSE) fixed the visual→logical order issue where NFKC normalizes character forms but NOT order, making all dictionary matching fail."
+    },
+    {
+      "priority": "MEDIUM",
+      "task": "Set HF_TOKEN secret in HF Space Settings for cloud sync activation"
+    },
+    {
+      "priority": "LOW",
+      "task": "Level 2: BERT contextual correction for Arabic medical text"
+    },
+    {
+      "priority": "LOW",
+      "task": "Level 3: BetterOCR+GPT for handwritten Arabic recognition"
+    },
+    {
+      "priority": "LOW",
+      "task": "Table extraction from structured medical forms"
+    },
+    {
+      "priority": "LOW",
+      "task": "RAG Medical knowledge base integration"
+    }
+  ],
+  "for_ai_models_contribution": {
+    "purpose": "This file is published so other AI models can review the processing results and contribute improvements",
+    "how_to_contribute": [
+      "1. Review known_issues and suggest code fixes for each issue",
+      "2. Add more orthopedic/medical terms to medical_terms_dict.json with presentation form variants",
+      "3. Improve the _normalize() function in MedicalContextProcessor to handle more edge cases",
+      "4. Add more context rules to _CONTEXT_RULES in context_corrector.py",
+      "5. Improve fragment merging heuristics for PaddleOCR output",
+      "6. Suggest better fuzzy matching thresholds for Arabic text",
+      "7. Add more RTL reversal detection patterns"
+    ],
+    "key_files": [
+      "app/ocr_engine.py - main pipeline, ~1226 lines",
+      "app/advanced_corrector.py - medical context + orthopedic, ~573 lines",
+      "app/context_corrector.py - fragment merging + dictionary fuzzy, ~487 lines",
+      "app/medical_terms_dict.json - 100+ orthopedic terms with variants",
+      "app/arabic_utils.py - Arabic text utilities (reshaping, RTL fix)",
+      "app/gradio_app.py - Gradio web interface"
+    ],
+    "testing": {
+      "how_to_test": "Push changes to HF Space, upload a medical handwriting image, observe correction stats",
+      "key_metrics": "medical_corrected should increase from 0, context_corrected should remain high, dict_corrected should grow"
+    }
+  }
+}
