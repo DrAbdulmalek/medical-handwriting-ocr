@@ -43,7 +43,7 @@ pix2tex==0.1.0
 
 # ── Image Processing (Florence-2) ──────────────────────────
 accelerate>=0.30.0
-timm==1.0.11
+timm==1.0.27
 matplotlib>=3.8.0
 
 # ── Audio/Video Processing (Whisper) ────────────────────────
