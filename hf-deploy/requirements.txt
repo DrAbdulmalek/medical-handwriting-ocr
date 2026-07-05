@@ -11,7 +11,7 @@ python-bidi>=0.4.2
 arabic-reshaper>=3.0.0
 
 # Multi-engine OCR
-pytesseract>=0.3.10
+pytesseract>=0.3.13
 easyocr>=1.7.0
 transformers>=4.30.0
 sentencepiece>=0.1.99
