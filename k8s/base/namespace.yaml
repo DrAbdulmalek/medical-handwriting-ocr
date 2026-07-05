@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: medical-ocr
-  labels:
-    app.kubernetes.io/name: medical-handwriting-ocr
-    app.kubernetes.io/part-of: medical-ocr
-    app.kubernetes.io/environment: production
