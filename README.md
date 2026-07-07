@@ -1,3 +1,19 @@
+> ## Repository Archived
+
+This repository has been **archived**. Its code and functionality have been consolidated into the
+[omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) monorepo.
+
+| Detail | Value |
+|--------|-------|
+| **Suite location** | `apps/handwriting-demo/` |
+| **Original purpose** | Flagship Gradio demo for Arabic medical handwriting OCR |
+| **Archived on** | 2026-07-07 |
+| **Status** | Read-only - no further updates will be made here |
+
+Please use [omni-medical-suite](https://github.com/DrAbdulmalek/omni-medical-suite) for all development.
+
+---
+
 > ⚠️ **قيد الدمج ضمن omni-medical-suite (لم يكتمل بعد)**
 >
 > هذا الـSpace كان نشرة تجريبية منفصلة (Streamlit). القرار الحالي هو دمجه ضمن
