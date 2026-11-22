@@ -72,7 +72,7 @@ langchain-community==0.3.14
 chromadb==0.5.23
 faiss-cpu==1.9.0
 sentence-transformers==3.3.1
-tiktoken==0.8.0
+tiktoken==0.14.0
 
 # ── Object Storage ──────────────────────────────────────────
 minio==7.2.15
